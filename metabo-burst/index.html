@@ -279,7 +279,7 @@ body{
         <ol>
           <li><b>スワイプ</b>で<wbr>上下左右に<wbr>移動。<wbr>当たり判定は<wbr><b>お腹</b>で、<wbr>見た目より<wbr>ちょっと<wbr>小さめ。</li>
           <li><b>赤く光る・<wbr>赤い点線</b>は<wbr>障害物。<wbr>当たると<wbr>残業確定。<wbr><b style="color:#146b38">緑に光る＋1</b>は<wbr>食べ物。</li>
-          <li>右下の<wbr><b>「撃つ」</b>で<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>2本指なら<wbr>動きながら<wbr>撃てる。</li>
+          <li>右下の<wbr><b>「撃つ」</b>で<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>移動中は<wbr>もう1本の<wbr>指で<wbr>タップすると<wbr>発射、<wbr>下に<wbr>引っ張ると<wbr>狙い撃ち。</li>
           <li>撃つほど<wbr>痩せて<wbr>当たり判定が<wbr>小さくなる。<wbr>でも<wbr>脂肪<b>0</b>で<wbr>ガリガリに<wbr>燃え尽きて<wbr>終了。</li>
           <li>太っているほど<wbr>スコアが伸びる。<wbr>食べて回復：<wbr>おにぎり／<wbr>からあげは<wbr>貫通弾／<wbr>マシマシラーメンは<wbr>全回復。</li>
           <li><b>栄養ドリンク</b>は<wbr>1本まで<wbr>持てる。<wbr>右下の<wbr><b>「無敵」</b>で<wbr>好きなときに<wbr>6秒間無敵。<wbr>障害物に<wbr>体当たりで<wbr>粉砕。<wbr>ボスへの<wbr>体当たりは<wbr>1本で2回まで。</li>
@@ -2625,7 +2625,9 @@ cv.addEventListener('pointerdown', e => {
   // お腹の近くに触れた指は、最初に動いた向きで決める（下へ引いたら狙い撃ち、それ以外は移動）
   else if (!ptr && !mptr && Math.hypot(p.x - hb.x, p.y - hb.y) < 86 && ammo() > 0) ptr = { id: e.pointerId, sx: p.x, sy: p.y, x: p.x, y: p.y, t0: performance.now() };
   else if (!mptr) mptr = { id: e.pointerId, lx: p.x, ly: p.y };
-  else quickFire(); // 移動中にもう1本の指で触れたら発射
+  // 移動中のもう1本の指：下へ引いたら狙い撃ち、そのまま離したら発射（どこを触ってもよい）
+  else if (!ptr && ammo() > 0) ptr = { id: e.pointerId, sx: p.x, sy: p.y, x: p.x, y: p.y, t0: performance.now(), second: true };
+  else quickFire();
 });
 cv.addEventListener('pointermove', e => {
   const p = toLocal(e);
@@ -2635,6 +2637,7 @@ cv.addEventListener('pointermove', e => {
     if (!P.charging && Math.hypot(p.x - ptr.sx, p.y - ptr.sy) > 12 && canAct()) {
       const dx = p.x - ptr.sx, dy = p.y - ptr.sy;
       if (dy > 0 && dy > Math.abs(dx) * 0.8) startCharge(false);
+      else if (ptr.second) ptr = null; // 2本目の指を横や上に動かしたときは何もしない
       else { // 移動の指に切り替え、ここまでの動きも反映
         P.tx = clamp(P.tx + dx, WL + 52, WR - 52); P.ty = clamp(P.ty + dy, YMIN, YMAX);
         mptr = { id: e.pointerId, lx: p.x, ly: p.y }; ptr = null;
@@ -2650,7 +2653,7 @@ function endPtr(e, cancel) {
     const dy = ptr.y - ptr.sy, L = Math.hypot(ptr.x - ptr.sx, dy);
     P.charging = false; chargeSound(false);
     if (!cancel && dy > 12 && L > 22 && canAct()) { fire(P.aim, clamp(P.pullAmt, 0.35, 1)); G.fireCD = 0.12; G.stats.aimed = (G.stats.aimed || 0) + 1; }
-  }
+  } else if (ptr.second && !cancel) quickFire();
   ptr = null;
 }
 cv.addEventListener('pointerup', e => endPtr(e, false));
