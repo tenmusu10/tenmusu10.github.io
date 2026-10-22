@@ -184,6 +184,18 @@ body{
 .modes{display:flex;gap:2cqw;justify-content:center;flex-wrap:wrap}
 .endless{color:#f4d64e;border-color:#f4d64e;text-shadow:0 0 1.6cqw rgba(244,214,78,.7);animation:none}
 .endless small{color:#f6e7a8}
+/* tips：初めて出会った物の説明（ゲームは止まる）と、tips集 */
+.ov.tipov{background:rgba(12,16,19,.55)}
+.tipcard{width:min(86cqw,100%);display:flex;flex-direction:column;align-items:center;gap:2cqw;background:rgba(16,20,23,.95);border:.45cqw solid var(--memo);border-radius:2.4cqw;padding:3cqw 4cqw 3.4cqw}
+.tiptitle{margin:0;font-family:var(--f-display);font-weight:400;font-size:5cqw;color:var(--paper)}
+.tipart{width:100%;max-width:80cqw;aspect-ratio:320/170;border-radius:1.6cqw}
+.tipbody{margin:0;font-weight:700;font-size:3.7cqw;line-height:1.6;text-align:left;word-break:auto-phrase}
+.tipbody b,.tips b{color:var(--memo)}
+.tips{list-style:none;margin:0;padding:0;width:100%;display:grid;gap:3cqw}
+.tips li{display:flex;flex-direction:column;gap:1.4cqw;background:rgba(255,255,255,.06);border-radius:1.6cqw;padding:2.4cqw}
+.tips li p{margin:0;font-size:3.4cqw;line-height:1.6;word-break:auto-phrase}
+.tips li.lock{opacity:.5}
+.tips li.lock b{color:var(--muted)}
 </style>
 
 <div id="stage">
@@ -218,6 +230,7 @@ body{
         <button type="button" class="mbtn" id="mBoss">ボスモード</button>
         <button type="button" class="mbtn" id="mRank">ランキング</button>
         <button type="button" class="mbtn" id="mAch">実績</button>
+        <button type="button" class="mbtn" id="mTips">tips集</button>
         <button type="button" class="mbtn" id="mCos">着せ替え</button>
         <button type="button" class="mbtn" id="mSet">設定</button>
       </nav>
@@ -288,6 +301,17 @@ body{
       <h2 id="panelTitle" class="ptitle"></h2>
       <div id="panelBody" class="pbody"></div>
       <button id="panelClose" class="ghost" type="button">閉じる</button>
+    </section>
+
+    <section id="ovTip" class="ov tipov" hidden aria-labelledby="tipTitle">
+      <div class="tipcard">
+        <div class="kicker">TIPS</div>
+        <h2 id="tipTitle" class="tiptitle"></h2>
+        <canvas id="tipArt" class="tipart" aria-hidden="true"></canvas>
+        <p id="tipBody" class="tipbody"></p>
+        <button id="tipOk" class="btn" type="button">わかった</button>
+        <button id="tipNever" class="tskip" type="button">今後tipsを表示しない</button>
+      </div>
     </section>
 
     <section id="ovAd" class="ov full" hidden>
@@ -1602,6 +1626,16 @@ function drawStamp(c, e) {
     txt(g, word, 0, 1, F.dg(word.length > 2 ? 7 : 10), COL.hanko);
   }, e.x, e.y, e.rot);
 }
+// 硬い弾：脂肪弾では消せない。鉄の輪と4つのボルトで見分ける
+function drawHard(c, e) {
+  const r = (e.r || 12) + 7, d = 2 * r + 10;
+  blitRot(c, 'hard' + r, d, g => {
+    g.strokeStyle = '#15191d'; g.lineWidth = 7; circ(g, 0, 0, r); g.stroke();
+    g.strokeStyle = '#9aa4ae'; g.lineWidth = 4; circ(g, 0, 0, r); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1; circ(g, 0, 0, r - 1.2); g.stroke();
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; g.fillStyle = '#eef2f5'; circ(g, Math.cos(a) * r, Math.sin(a) * r, 3); g.fill(); g.strokeStyle = '#15191d'; g.lineWidth = 1.2; g.stroke(); }
+  }, e.x, e.y, G.t * 1.5);
+}
 function drawSheet(c, e) {
   // 表と裏の画像を用意し、裏返りは横幅の伸縮で表す
   const fx = Math.cos(e.flip), sx = Math.abs(fx) * 0.9 + 0.1, fly = TH().id === 'izakaya';
@@ -2230,7 +2264,9 @@ function shoot(kind, x, y, ang, spd, extra) {
   const o = { type: kind, x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, shot: true, harm: true, rot: rnd(0, TAU), flip: 0 };
   if (kind === 'stamp') o.r = 14; else if (kind === 'sheet') { o.r = 7; o.phase = rnd(0, TAU); } else if (kind === 'phone') { o.r = 12; o.home = 2.2; o.spd = spd; }
   if (D().shot !== 1) { o.vx *= D().shot; o.vy *= D().shot; if (o.spd) o.spd *= D().shot; }
-  return addEnt(Object.assign(o, extra || {}));
+  const e = addEnt(Object.assign(o, extra || {}));
+  if (e.hard) tipTrigger('hard'); else if (e.skin === 'refl') tipTrigger('refl');
+  return e;
 }
 function spawnPattern(kind, p) {
   const st = STAGES[G.stage];
@@ -2382,7 +2418,7 @@ function bossAttack(b) {
   const faceX = () => b.x, faceY = () => b.y + 20;
   const s2 = G.stage, sk = b.kind === 'senmu' ? { skin: 'mug' } : { word: '決裁' };
   if (name === 'stamp3') {
-    for (let v = 0; v < 3; v++) later(0.3 + v * 0.45, () => { const a = Math.atan2(P.y - faceY(), P.x - faceX()); for (let k = -1; k <= 1; k++) shoot('stamp', faceX(), faceY(), a + k * 0.3, 250, sk); sfx('shred'); });
+    for (let v = 0; v < 3; v++) later(0.3 + v * 0.45, () => { const a = Math.atan2(P.y - faceY(), P.x - faceX()); for (let k = -1; k <= 1; k++) shoot('stamp', faceX(), faceY(), a + k * 0.3, 250, k ? sk : Object.assign({ hard: true }, sk)); sfx('shred'); }); // 真ん中は硬い弾（撃っても消えない）
     open(1.8);
   } else if (name === 'rain') {
     for (let i = 0; i < Math.round((10 + s2 * 3) * D().rain); i++) later(0.2 + i * 0.13, () => shoot('sheet', rnd(WL + 18, WR - 18), 72, Math.PI / 2 + rnd(-0.15, 0.15), rnd(190, 260)));
@@ -2406,13 +2442,13 @@ function bossAttack(b) {
     open(1.9);
   } else if (name === 'fixed') { // 真下へ扇状に広がる固定弾（隙間を交互にずらす）
     const kind2 = b.kind === 'client' ? 'sheet' : 'stamp', ex2 = b.kind === 'client' ? null : sk;
-    for (let v = 0; v < 4; v++) later(0.3 + v * 0.4, () => { const n = 7 + (G.ura ? 2 : 0); for (let i = 0; i < n; i++) shoot(kind2, faceX(), faceY(), Math.PI / 2 + (i - (n - 1) / 2) * 0.26 + (v % 2 ? 0.13 : 0), 200, ex2); sfx('shred'); });
+    for (let v = 0; v < 4; v++) later(0.3 + v * 0.4, () => { const n = 7 + (G.ura ? 2 : 0); for (let i = 0; i < n; i++) shoot(kind2, faceX(), faceY(), Math.PI / 2 + (i - (n - 1) / 2) * 0.26 + (v % 2 ? 0.13 : 0), 200, !(v % 2) && i === (n - 1) / 2 ? Object.assign({ hard: true }, ex2) : ex2); sfx('shred'); }); // 真下の1発は硬い弾：顔の真下で撃ち続けるだけでは勝てない
     open(1.9);
   } else if (name === 'bounce') { // 跳ね王冠の扇：左右の壁で跳ね返って交差する
     for (let v = 0; v < (G.ura ? 3 : 2); v++) later(0.3 + v * 0.7, () => { const n = G.ura ? 6 : 4; for (let i = 0; i < n; i++) { const s = i % 2 ? 1 : -1, a = Math.PI / 2 + s * (0.55 + Math.floor(i / 2) * 0.22 + (v % 2 ? 0.1 : 0)); shoot('stamp', faceX(), faceY(), a, G.ura ? 190 : 160, { skin: 'refl', refl: 1, r: 12 }); } sfx('shred'); });
     open(2.2);
   } else if (name === 'phone') {
-    for (let i = 0; i < 3 + s2; i++) later(0.3 + i * 0.45, () => shoot('phone', faceX(), faceY(), Math.atan2(P.y - faceY(), P.x - faceX()) + rnd(-0.5, 0.5), 170));
+    for (let i = 0; i < 3 + s2; i++) later(0.3 + i * 0.45, () => shoot('phone', faceX(), faceY(), Math.atan2(P.y - faceY(), P.x - faceX()) + rnd(-0.5, 0.5), 170, { hard: true })); // 追ってくる電話は硬い弾
     open(2.2);
   } else if (name === 'dash') {
     b.dash = { phase: 'tele', t: 0, tx: clamp(P.x, WL + 50, WR - 50) };
@@ -2431,6 +2467,7 @@ function bossUpdate(dt) {
     if (Math.abs(b.y - b.ty) < 3 && !G.bossIntro) {
       b.state = 'fight';
       // 2面のクライアント（通常・1周目）は最初だけ顔を開けて待つ：跳ね返しの練習。最初の1発が当たるか8秒で終わる
+      tipTrigger('boss');
       if (b.kind === 'client' && !G.ura && !G.loop) { b.lesson = true; b.openT = 8; text('今だけ攻撃してこない！', W / 2, b.y + 120, 18, COL.memo, { life: 2.6, max: 2.6 }); }
     }
   } else if (b.state === 'fight') {
@@ -2478,6 +2515,7 @@ function declareOrder(b, def) {
   G.queue = []; b.openT = 0; b.dash = null;
   for (const e of G.ents) if (e.shot || (e.harm && e.type === 'joushi')) { e.dead = true; sparks(e.x, e.y, 2, '#ffe27a'); }
   G.cutin = { kind: b.kind, name: b.order.name, say: def.say, t: 0, no: b.orderIdx };
+  tipTrigger('order'); // 説明はカットインが終わってから出る
   G.flash = 0.35; G.flashCol = '#fff'; sfx('gong'); Haptic.tap('warn');
 }
 function orderBonus(s) { return Math.round(lerp(20000, 5000, clamp(s.t / ORDER_DUR, 0, 1)) / 10) * 10; }
@@ -2542,7 +2580,7 @@ function orderUpdate(b, dt) {
     every(ura ? 0.72 : 0.85, () => {
       const n = ura ? 5 : 4, off = s.v % 2 ? 0.12 : 0;
       for (let i = 0; i < n; i++) { const sd = i % 2 ? 1 : -1; shoot('stamp', fx, fy, Math.PI / 2 + sd * (0.5 + Math.floor(i / 2) * 0.28 + off), ura ? 165 : 145, { skin: 'refl', refl: 2, r: 12 }); }
-      if (s.v % 3 === 0) shoot('stamp', fx, fy, Math.atan2(P.y - fy, P.x - fx), 170, { skin: 'mug', r: 15 });
+      if (s.v % 3 === 0) shoot('stamp', fx, fy, Math.atan2(P.y - fy, P.x - fx), 170, { skin: 'mug', r: 15, hard: true });
       sfx('shred');
     });
   } else if (s.id === 'rondo') { // 千鳥足で8の字に歩き、渦を巻く王冠の花を咲かせる
@@ -2657,7 +2695,7 @@ function fire(dir, power) {
   P.b.vsy -= 9; P.b.voy -= 260; P.b.vsx += 4; P.flail = 0.5;
   for (let k = 0; k < 8; k++) G.parts.push({ type: 'sweat', col: 'rgba(255,226,140,.95)', size: rnd(2, 4), x: sx, y: sy, vx: rnd(-160, 160), vy: rnd(-260, -40), life: 0.7, max: 0.7 });
   sparks(sx, sy, 10); ring(sx, sy, 110, 'rgba(255,255,255,.9)', 6);
-  for (const e of G.ents) if (e.shot && Math.hypot(e.x - sx, e.y - sy) < 105) { e.dead = true; burst(e.x, e.y, 5, e.type === 'stamp' ? '#f4c3bd' : null); }
+  for (const e of G.ents) if (e.shot && !e.hard && Math.hypot(e.x - sx, e.y - sy) < 105) { e.dead = true; burst(e.x, e.y, 5, e.type === 'stamp' ? '#f4c3bd' : null); }
   if (power > 0.8) text('ブルルンッ!', sx + rnd(-10, 10), sy - 40, 16, '#fff', { rot: rnd(-0.2, 0.2) });
   G.shake = Math.max(G.shake, 5); G.stats.shots++;
   P.hbFlash = 1.4; P.fatV -= 1.2;
@@ -3108,6 +3146,7 @@ function collisions() {
       if (b.dead || e.dead || b.hit.has(e.id) || (!e.shot && !e.solid)) continue;
       if (!bulletHits(b, e)) continue;
       b.hit.add(e.id);
+      if (e.hard) { sparks(b.x, b.y, 6, '#d8e0e8'); text('カキン!', e.x, e.y - 22, 13, '#d8e0e8'); sfx('graze'); continue; } // 硬い弾は消えない（脂肪弾もそのまま飛ぶ）
       if (e.shot) { e.dead = true; burst(e.x, e.y, 6, e.type === 'stamp' ? '#f4c3bd' : null); sfx('shred'); addScore(OBJ_PTS[e.type] || 20); continue; }
       e.hp -= b.dmg; e.hurt = 0.18; b.pierce--;
       if (e.hp <= 0) {
@@ -3406,6 +3445,7 @@ function step(dt, rdt) {
       else { G.pending.t -= dt; if (G.pending.t <= 0) { G.pending = null; die('starve'); } }
     }
     updateParts(dt, spd);
+    tipTick();
   } else if (G.mode === 'dying') {
     updateDeath(rdt);
     P.run += rdt * 2;
@@ -3702,6 +3742,7 @@ function render() {
   if (G.boss) drawBoss(c, G.boss);
   for (const e of G.ents) {
     if (e.type === 'stamp') drawStamp(c, e); else if (e.type === 'sheet') drawSheet(c, e); else if (e.type === 'phone') drawPhone(c, e); else if (e.type === 'warn') drawWarn(c, e);
+    if (e.hard) drawHard(c, e);
   }
   drawBullets(c);
   drawParts(c);
@@ -3728,7 +3769,7 @@ function render() {
   else setVig('B', '210,51,43', G.mode === 'play' && G.pending ? 0.3 + 0.15 * Math.sin(G.t * 16) : G.mode === 'play' && ammo() === 1 ? 0.12 + 0.08 * Math.sin(G.t * 8) : 0); // 画面の端だけ薄く。弾幕を隠さない
   // ここから上の層（HUD・演出）
   const u = uctx; u.setTransform(k, 0, 0, k, 0, 0); u.clearRect(0, 0, W, H);
-  if (G.mode === 'play' || G.mode === 'paused' || G.mode === 'dying') drawHUD(u);
+  if (G.mode === 'play' || G.mode === 'paused' || G.mode === 'tip' || G.mode === 'dying') drawHUD(u);
   drawBanner(u);
   drawWarning(u);
   drawBossIntro(u);
@@ -3743,7 +3784,7 @@ let last = performance.now();
 function loop(now) {
   requestAnimationFrame(loop);
   const rdt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
-  if (G.mode === 'paused') { render(); return; }
+  if (G.mode === 'paused' || G.mode === 'tip') { render(); return; }
   const slowing = P.charging && G.mode === 'play';
   if (slowing) G.slowBudget -= rdt; else G.slowBudget = Math.min(1.6, G.slowBudget + rdt * 0.6);
   const target = slowing && G.slowBudget > 0 ? 0.3 : 1;
@@ -4006,10 +4047,11 @@ function showSettings() {
     <label class="set" for="setSe"><span>効果音の音量</span><input id="setSe" type="range" min="0" max="100" value="${SETTINGS.se}"></label>
     <label class="set"><span>振動</span><button id="setVib" class="tbtn" type="button" aria-pressed="${SETTINGS.vib}">${SETTINGS.vib ? 'ON' : 'OFF'}</button></label>
     <label class="set"><span>揺れ・フラッシュ</span><button id="setCalm" class="tbtn" type="button" aria-pressed="${SETTINGS.calm}">${SETTINGS.calm ? '弱め' : '標準'}</button></label>
+    <label class="set"><span>tips（初めて見る物の説明）</span><button id="setTips" class="tbtn" type="button" aria-pressed="${SETTINGS.tips}">${SETTINGS.tips ? 'ON' : 'OFF'}</button></label>
     <label class="set"><span>チュートリアル</span><button id="setTut" class="tbtn" type="button" aria-pressed="${!tutDone()}">${tutDone() ? 'OFF' : 'ON'}</button></label>
     <p class="pnote"><a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>　<button id="setCredits" class="linkbtn" type="button">クレジット</button>　<button id="setReport" class="linkbtn" type="button">不具合を報告</button></p>`);
   const tog = (id, key) => $(id).addEventListener('click', () => { SETTINGS[key] = !SETTINGS[key]; saveSettings(); $(id).setAttribute('aria-pressed', SETTINGS[key]); $(id).textContent = SETTINGS[key] ? 'ON' : 'OFF'; if (key === 'sound' && SETTINGS.sound) titleMusicKick(); if (key === 'vib') Haptic.tap('medium'); });
-  tog('setSound', 'sound'); tog('setVib', 'vib');
+  tog('setSound', 'sound'); tog('setVib', 'vib'); tog('setTips', 'tips');
   $('setBgm').addEventListener('input', e => { SETTINGS.bgm = +e.target.value; saveSettings(); });
   $('setSe').addEventListener('input', e => { SETTINGS.se = +e.target.value; saveSettings(); });
   $('setSe').addEventListener('change', () => sfx('pick'));
@@ -4135,6 +4177,120 @@ function nextToast() {
   toastOn = true; el.textContent = m; el.hidden = false; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   sfx('pick'); setTimeout(() => { el.hidden = true; nextToast(); }, 2400);
 }
+</script>
+<script>
+// メタボリック・バースト：tips（初めて出会ったときの説明と、タイトルから見返せるtips集）
+'use strict';
+/* ================= tips ================= */
+// art は 320×170 の絵。ゲームと同じ描画関数で描くので、見た目が実際の画面とずれない
+const TIP_W = 320, TIP_H = 170;
+const TIPS = [
+  {
+    id: 'hard', title: '硬い弾（鉄の輪）',
+    body: '<b>鉄の輪とボルト</b>が付いた弾は、脂肪弾で<b>消せません</b>。撃っても弾は通り抜けるので、動いてよけよう。',
+    art(c) {
+      tipFloor(c);
+      const st = { x: 92, y: 52, r: 14, rot: 0, word: '決裁' }, hd = { x: 228, y: 52, r: 14, rot: 0, word: '決裁' };
+      drawStamp(c, st); drawStamp(c, hd); drawHard(c, hd);
+      tipShot(c, 92, 128); tipShot(c, 228, 128);
+      txt(c, '消せる', 92, 158, F.dg(14), COL.memo, 'center', COL.ink, 4);
+      txt(c, '消せない！', 228, 158, F.dg(14), '#ff8d84', 'center', COL.ink, 4);
+      c.strokeStyle = 'rgba(255,255,255,.25)'; c.lineWidth = 1.5; c.setLineDash([4, 5]); line(c, 160, 14, 160, 156); c.setLineDash([]);
+    },
+  },
+  {
+    id: 'boss', title: 'ボスは顔を狙う',
+    body: 'ボスは攻撃のあと<b>「スキあり！」</b>で顔の守りがゆるむ。赤い点線の輪が出ている間に<b>顔へ脂肪弾</b>を当てよう。',
+    art(c) {
+      tipFloor(c);
+      const def = BOSSES.shacho;
+      c.save(); c.translate(160, 118); c.scale(0.68, 0.68);
+      drawBoss(c, { kind: 'shacho', def, x: 0, y: 0, state: 'fight', guard: 0, cast: 0, hurt: 0, atk: 0 });
+      c.restore();
+    },
+  },
+  {
+    id: 'order', title: '業務命令（ボスの必殺技）',
+    body: 'ボスの体力が減ると<b>業務命令</b>を出す。弾の形が決まっているので、すき間を見つけて<b>顔に当てれば却下</b>。ドリンクを使わずに却下すると大ボーナス。',
+    art(c) {
+      tipFloor(c);
+      c.save(); c.globalAlpha = 0.35; blit(c, sealSprite('shacho'), 160, 80, 150, 150); c.restore();
+      for (let k = 0; k < 3; k++) for (let i = 1; i <= 4; i++) { const a = 0.4 + k * TAU / 3 + i * 0.12; drawStamp(c, { x: 160 + Math.cos(a) * i * 27, y: 74 + Math.sin(a) * i * 16, r: 10, rot: 0, word: '決裁' }); } // 回る3本の腕（マンダラ）
+      txt(c, '【業務命令】', 160, 150, F.dg(16), '#fff', 'center', COL.hanko, 5);
+    },
+  },
+  {
+    id: 'refl', title: '跳ね王冠（水色）',
+    body: '<b>水色の王冠</b>は左右の壁で<b>跳ね返る</b>。点線の輪が残っている間はまだ跳ねるので、壁ぎわに逃げると挟まれる。',
+    art(c) {
+      tipFloor(c);
+      c.fillStyle = '#2a2f33'; c.fillRect(0, 0, 18, TIP_H); c.fillRect(TIP_W - 18, 0, 18, TIP_H);
+      const pts = [[160, 18], [36, 70], [284, 150]];
+      c.strokeStyle = 'rgba(143,227,255,.8)'; c.lineWidth = 2; c.setLineDash([6, 6]);
+      c.beginPath(); c.moveTo(...pts[0]); c.lineTo(...pts[1]); c.lineTo(...pts[2]); c.stroke(); c.setLineDash([]);
+      drawStamp(c, { x: 104, y: 42, r: 12, rot: 0.4, skin: 'refl', refl: 1 });
+      drawStamp(c, { x: 200, y: 122, r: 12, rot: 1.1, skin: 'refl', refl: 0 });
+      txt(c, 'ポーン', 52, 96, F.dg(12), '#8fe3ff', 'center', COL.ink, 4);
+    },
+  },
+];
+const tipById = id => TIPS.find(t => t.id === id);
+if (SETTINGS.tips === undefined) SETTINGS.tips = true; // 既定はON
+const TIPS_SEEN = Store.get('tipsSeen', {});
+G.tipQ = [];
+function tipFloor(c) {
+  c.fillStyle = '#3b4146'; rr(c, 0, 0, TIP_W, TIP_H, 10); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,.05)'; c.lineWidth = 1;
+  for (let x = 20; x < TIP_W; x += 40) line(c, x, 0, x, TIP_H);
+  for (let y = 20; y < TIP_H; y += 40) line(c, 0, y, TIP_W, y);
+}
+function tipShot(c, x, y) { // 下から上へ飛ぶ脂肪弾
+  c.strokeStyle = 'rgba(255,232,150,.6)'; c.lineWidth = 3; c.setLineDash([4, 5]); line(c, x, y + 10, x, y - 44); c.setLineDash([]);
+  drawFat(c, x, y, 12, 'fat', 0);
+}
+function drawTipArt(cvs, tip) {
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  cvs.width = TIP_W * dpr; cvs.height = TIP_H * dpr;
+  const c = cvs.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  try { tip.art(c); } catch (e) { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cvs.width, cvs.height); } // 絵が描けなくても説明文は出す
+}
+// 初めて出会ったら記録する（tipsがOFFでもtips集には載る）。表示はtipTickが出せる場面まで待つ
+function tipTrigger(id) {
+  if (TIPS_SEEN[id] || !tipById(id)) return;
+  TIPS_SEEN[id] = 1; Store.set('tipsSeen', TIPS_SEEN);
+  if (SETTINGS.tips && !G.tipQ.includes(id)) G.tipQ.push(id);
+}
+// 毎フレーム（プレイ中）：演出やチュートリアルと重ならないときだけ出す
+function tipTick() {
+  if (!G.tipQ.length || G.mode !== 'play' || G.cutin || G.bossIntro || G.tut || G.exiting || G.death) return;
+  if (!SETTINGS.tips) { G.tipQ = []; return; }
+  showTip(tipById(G.tipQ.shift()));
+}
+function showTip(tip) {
+  G.mode = 'tip'; P.charging = false; chargeSound(false); ptr = mptr = fptr = null; for (const k in keys) keys[k] = false;
+  musicStop();
+  $('tipTitle').textContent = tip.title; $('tipBody').innerHTML = tip.body; drawTipArt($('tipArt'), tip);
+  $('ovTip').hidden = false; $('tipOk').focus({ preventScroll: true });
+  sfx('pick');
+}
+function closeTip(never) {
+  if (G.mode !== 'tip') return;
+  if (never) { SETTINGS.tips = false; saveSettings(); G.tipQ = []; toast('tipsはタイトルの「tips集」でいつでも見られます'); }
+  $('ovTip').hidden = true; G.mode = 'play'; musicResume();
+}
+// tips集：出会ったものは絵と説明、まだのものは伏せる
+function showTipsBook() {
+  const n = TIPS.filter(t => TIPS_SEEN[t.id]).length;
+  openPanel('tips集', `<p class="pnote">${n} / ${TIPS.length}　ゲーム中に出会うと増えます</p>
+    <ul class="tips">${TIPS.map(t => TIPS_SEEN[t.id]
+      ? `<li><b>${esc(t.title)}</b><canvas class="tipart" data-tip="${t.id}" aria-hidden="true"></canvas><p>${t.body}</p></li>`
+      : '<li class="lock"><b>？？？</b><p>まだ出会っていません</p></li>').join('')}</ul>`);
+  panelBody.querySelectorAll('canvas[data-tip]').forEach(cvs => drawTipArt(cvs, tipById(cvs.dataset.tip)));
+}
+$('tipOk').addEventListener('click', () => closeTip(false));
+$('tipNever').addEventListener('click', () => closeTip(true));
+$('mTips').addEventListener('click', showTipsBook);
+addEventListener('keydown', e => { if (G.mode === 'tip' && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); closeTip(false); } });
 </script>
 <script>
 // メタボリック・バースト：タイトル・結果画面などのボタン
