@@ -280,7 +280,7 @@ body{
           <li><b>スワイプ</b>で<wbr>上下左右に<wbr>移動。<wbr>当たり判定は<wbr><b>お腹</b>で、<wbr>見た目より<wbr>ちょっと<wbr>小さめ。</li>
           <li><b>赤く光る・<wbr>赤い点線</b>は<wbr>障害物。<wbr>当たると<wbr>残業確定。<wbr><b style="color:#146b38">緑に光る＋1</b>は<wbr>食べ物。</li>
           <li>右下の<wbr><b>「撃つ」</b>で<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>移動中は<wbr>もう1本の<wbr>指で<wbr>タップすると<wbr>発射、<wbr>下に<wbr>引っ張ると<wbr>狙い撃ち。</li>
-          <li>撃つほど<wbr>痩せて<wbr>当たり判定が<wbr>小さくなる。<wbr>でも<wbr>脂肪<b>0</b>で<wbr>ガリガリに<wbr>燃え尽きて<wbr>終了。</li>
+          <li>撃つほど<wbr>痩せて<wbr>当たり判定が<wbr>小さくなる。<wbr>でも<wbr>脂肪<b>0</b>のまま<wbr>2秒<wbr>たつと<wbr>ガリガリに<wbr>燃え尽きて<wbr>終了。<wbr>すぐ<wbr>食べれば<wbr>助かる。</li>
           <li>太っているほど<wbr>スコアが伸びる。<wbr>食べて回復：<wbr>おにぎり／<wbr>からあげは<wbr>貫通弾／<wbr>マシマシラーメンは<wbr>全回復。</li>
           <li><b>栄養ドリンク</b>は<wbr>1本まで<wbr>持てる。<wbr>右下の<wbr><b>「無敵」</b>で<wbr>好きなときに<wbr>6秒間無敵。<wbr>障害物に<wbr>体当たりで<wbr>粉砕。<wbr>ボスへの<wbr>体当たりは<wbr>1本で2回まで。</li>
           <li>壊した物で<wbr>点が違う<wbr>（部長500・<wbr>車400・<wbr>上司200 など）。<wbr>無敵中の<wbr>体当たりは<wbr>2倍で、<wbr>続けて壊すほど<wbr>最大×3。</li>
@@ -2431,9 +2431,10 @@ function orderUpdate(b, dt) {
   } else if (s.id === 'corridor') { // ジョッキの壁が降ってくる。うねる通り道だけが安全
     const gx = W / 2 + Math.sin(s.t * 0.75) * 95 + Math.sin(s.t * 1.7) * 22;
     b.x += (gx - b.x) * Math.min(1, dt * 2.5);
-    every(ura ? 0.4 : 0.46, () => {
-      const half = (ura ? 118 : 132) / 2;
-      for (let x = WL + 18; x <= WR - 18; x += 38) if (Math.abs(x - gx) > half) shoot('stamp', x, 58, Math.PI / 2, ura ? 150 : 128, { skin: 'cap', r: 11 });
+    // 壁の王冠は間を空けて段ごとに半分ずらす：痩せていれば壁のすき間を気合いでくぐれる（通常は脂肪2以下、裏は1で通れる幅）
+    every(ura ? 0.5 : 0.58, () => {
+      const half = (ura ? 118 : 132) / 2, sp = ura ? 60 : 68, ox = s.v % 2 ? sp / 2 : 0;
+      for (let x = WL + 18 + ox; x <= WR - 18; x += sp) if (Math.abs(x - gx) > half) shoot('stamp', x, 58, Math.PI / 2, ura ? 150 : 128, { skin: 'cap', r: 11 });
       if (s.v % 4 === 0) sfx('shred');
     });
   } else if (s.id === 'ladder') { // 跳ね王冠を左右の壁へ。2回跳ね返って格子になる
@@ -2564,8 +2565,10 @@ function fire(dir, power) {
   G.parts.push({ type: 'ring', x: P.x, y: P.y, r0: 120, r1: 36, life: 0.45, max: 0.45, col: 'rgba(157,255,191,.95)', w: 5 });
   sfx('pop'); Haptic.tap('light');
   const left = ammo();
-  if (left === 0) { G.pending = { t: 0.7, type: 'starve' }; }
-  else if (left === 1) banner('ラスト脂肪', '撃てばガリガリに燃え尽きる', COL.hanko);
+  if (left === 0) { // 弾切れ：猶予のあいだに食べ物か再吸収で脂肪が戻れば助かる
+    const t = G.ura ? 1.5 : 2; G.pending = { t, max: t, type: 'starve' };
+    text('急いで食べ物を取れ！', W / 2, P.y - 200, 20, COL.memo, { life: 1.8, max: 1.8 });
+  } else if (left === 1) banner('ラスト脂肪', '撃ったらすぐ食べないと燃え尽きる', COL.hanko);
 }
 function updateBullets(dt) {
   for (const b of G.bullets) {
@@ -2609,7 +2612,7 @@ const FIRE_BTN = { x: 314, y: H - 33, r: 27 };
 const DRINK_BTN = { x: 314, y: H - 96, r: 22 };
 let fptr = null; // 発射ボタンを押している指
 function toLocal(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; }
-function canAct() { return G.mode === 'play' && !G.exiting && !G.pending; }
+function canAct() { return G.mode === 'play' && !G.exiting; } // 弾切れの猶予中も動ける（撃つのは脂肪0なので不可）
 function quickFire() {
   if (!canAct() || ammo() === 0 || G.fireCD > 0) return;
   fire({ x: clamp(P.vx / 1600, -0.25, 0.25), y: -1 }, 0.85); G.fireCD = 0.12;
@@ -3262,7 +3265,10 @@ function step(dt, rdt) {
     collisions();
     G.ents = G.ents.filter(e => !e.dead);
     if (G.mode === 'play' && !G.exiting && !G.bossIntro) { G.score += scoreRate() * dt; if (G.score >= 100000) unlock('score100k'); }
-    if (G.pending && G.mode === 'play') { G.pending.t -= dt; if (G.pending.t <= 0) { G.pending = null; die('starve'); } }
+    if (G.pending && G.mode === 'play') {
+      if (ammo() > 0) { G.pending = null; text('ギリギリセーフ！', P.x, P.y - 140, 22, COL.memo); sfx('kit'); Haptic.tap('medium'); }
+      else { G.pending.t -= dt; if (G.pending.t <= 0) { G.pending = null; die('starve'); } }
+    }
     updateParts(dt, spd);
   } else if (G.mode === 'dying') {
     updateDeath(rdt);
@@ -3568,13 +3574,20 @@ function render() {
     ell(c, hb.x, hb.y, hb.rx, hb.ry); c.stroke(); c.setLineDash([]);
     c.restore();
   }
+  if (G.pending && G.mode === 'play') { // 弾切れの猶予：残り時間の輪
+    const hb = hitbox(), k = clamp(G.pending.t / G.pending.max, 0, 1), r = Math.max(hb.rx, hb.ry) + 34;
+    c.save(); c.lineWidth = 6; c.strokeStyle = 'rgba(16,20,23,.5)'; circ(c, hb.x, hb.y, r); c.stroke();
+    c.strokeStyle = COL.hanko; c.beginPath(); c.arc(hb.x, hb.y, r, -Math.PI / 2, -Math.PI / 2 + TAU * k); c.stroke();
+    txt(c, G.pending.t.toFixed(1), hb.x, hb.y - r - 14, F.dg(16), '#fff', 'center', COL.hanko, 4);
+    c.restore();
+  }
   drawTexts(c);
   c.restore();
   // 色かぶり・周辺の暗さ（CSS）
   setFx('tint', G.boss && G.boss.order ? 'rgba(25,0,35,.3)' : (TH().tint || 'transparent'));
   setVig('A', '120,0,20', G.ura && G.mode !== 'title' ? 0.35 : 0);
   if (G.slow < 0.95) setVig('B', '30,60,120', (1 - G.slow) * 0.55);
-  else setVig('B', '210,51,43', G.mode === 'play' && ammo() === 1 ? 0.12 + 0.08 * Math.sin(G.t * 8) : 0); // 画面の端だけ薄く。弾幕を隠さない
+  else setVig('B', '210,51,43', G.mode === 'play' && G.pending ? 0.3 + 0.15 * Math.sin(G.t * 16) : G.mode === 'play' && ammo() === 1 ? 0.12 + 0.08 * Math.sin(G.t * 8) : 0); // 画面の端だけ薄く。弾幕を隠さない
   // ここから上の層（HUD・演出）
   const u = uctx; u.setTransform(k, 0, 0, k, 0, 0); u.clearRect(0, 0, W, H);
   if (G.mode === 'play' || G.mode === 'paused' || G.mode === 'dying') drawHUD(u);
