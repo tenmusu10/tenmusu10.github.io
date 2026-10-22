@@ -233,7 +233,7 @@ body{
 
     <section id="ovClear" class="ov full" hidden>
       <div id="clearKicker" class="kicker"></div>
-      <p class="big">フロア突破</p>
+      <p id="clearBig" class="big">フロア突破</p>
       <p id="clearMsg" class="verdict"></p>
       <dl id="clearStats" class="stats"></dl>
       <button id="nextBtn" class="btn" type="button">次のフロアへ</button>
@@ -3126,10 +3126,10 @@ function drawDeath(c) {
 function showOver() {
   const d = G.death, st = STAGES[G.stage];
   ovCause.innerHTML = '<span style="color:var(--hanko);font-family:var(--f-display);font-weight:400">' + (d.type === 'starve' ? '体脂肪率 0%' : '社会的に死亡') + '</span><br>' + (d.type === 'starve' ? CAUSE.starve : (CAUSE[d.by] || CAUSE.pile));
-  const remain = (G.endless ? `${G.loop + 1}周目 ` : '') + (G.bossPhase ? 'ボス戦' : `出口まで残り ${Math.max(0, Math.ceil((st.len - G.dist) / 10))}m`);
+  const remain = (G.endless ? `${G.loop + 1}周目 ` : G.rush ? `ボスラッシュ ${G.rush.i + 1}/${STAGES.length} ` : '') + (G.bossPhase ? 'ボス戦' : `出口まで残り ${Math.max(0, Math.ceil((st.len - G.dist) / 10))}m`);
   setAdButtons();
   ovStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>到達</dt><dd>${st.name}　${remain}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd>`;
-  retryBtn.textContent = G.endless ? '1周目から再挑戦' : G.bossMode ? 'もう一度ボスに挑む' : 'このフロアから再挑戦';
+  retryBtn.textContent = G.endless ? '1周目から再挑戦' : G.rush ? '1体目から再挑戦' : G.bossMode ? 'もう一度ボスに挑む' : 'このフロアから再挑戦';
   resetShare(); ovOver.hidden = false;
   retryBtn.focus({ preventScroll: true });
 }
@@ -3143,6 +3143,7 @@ function stageClear() {
   }
   const b = G.best || { stage: 0, pct: 0, clears: 0 };
   unlockBoss(st.boss);
+  if (G.rush) { rushClear(shown); return; }
   if (G.bossMode) { bossModeClear(st, shown); return; }
   const looped = G.endless && G.stage >= STAGES.length - 1;
   if (looped) { G.loop++; if (G.loop >= 1) unlock('loop2'); saveScore(); }
@@ -3175,6 +3176,17 @@ function bossModeClear(st, shown) {
     setAdButtons(); ovClear.hidden = false; nextBtn.focus({ preventScroll: true });
   }, 700);
 }
+function rushClear(shown) {
+  const R = G.rush; R.splits.push(G.play - (G.bossStart || 0));
+  if (R.i < STAGES.length - 1) { setTimeout(nextRushBoss, 1100); return; }
+  const sec = R.splits.reduce((a, b) => a + b, 0), prev = META.bossBest.rush, best = recordBossTime('rush', sec);
+  setTimeout(() => {
+    clearKicker.textContent = 'ボスラッシュ'; $('clearBig').textContent = `${STAGES.length}連戦 突破`;
+    clearMsg.innerHTML = `${STAGES.length}人を合計<em>${fmtSec(sec)}</em>で黙らせました。` + (best ? (prev ? '<br>自己ベスト更新！' : '') : `<br>最速は${fmtSec(prev)}。`);
+    clearStats.innerHTML = STAGES.map((st, i) => `<dt>${esc(BOSSES[st.boss].name)}</dt><dd>${fmtSec(R.splits[i])}</dd>`).join('') + `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd>`;
+    setAdButtons(); ovClear.hidden = false; nextBtn.focus({ preventScroll: true });
+  }, 700);
+}
 function nextStageIdx() { return G.endless ? (G.stage + 1) % STAGES.length : G.stage + 1; }
 function clockStr() { const s = 18 * 3600 + Math.floor(G.play * 10); const h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60; return `${h}:${String(m).padStart(2, '0')}`; }
 
@@ -3189,17 +3201,18 @@ function startStage(i, freshAmmo) {
   P.noShirt = false;
   G.mode = 'play';
   const st = STAGES[i];
-  banner((G.ura ? '裏 ' : G.endless ? `残業${G.loop + 1}周目 ` : '') + st.name, st.place + '　出口まで ' + Math.round(st.len / 10) + 'm', G.ura ? COL.hanko : '#fff', true);
+  if (G.rush) banner(`ボスラッシュ ${G.rush.i + 1}/${STAGES.length}`, BOSSES[st.boss].name + '　' + BOSSES[st.boss].who, '#fff', true);
+  else banner((G.ura ? '裏 ' : G.endless ? `残業${G.loop + 1}周目 ` : '') + st.name, st.place + '　出口まで ' + Math.round(st.len / 10) + 'm', G.ura ? COL.hanko : '#fff', true);
   for (const o of [ovTitle, ovOver, ovClear, ovEnd, ovPause]) o.hidden = true;
   pauseBtn.hidden = false;
   musicStart(); sfx('gogo');
   if (G.bossMode) { G.bossStart = G.play; startBoss(); setBossModeButtons(); return; } // ボスモードは道中なしでいきなりボス戦
   if (i === 0 && !G.ura && !G.daily && !G.endless && !tutDone()) startTut(); // 通常モードの1面で、まだ見ていない人だけ
 }
-function newRun() { G.bossMode = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.adCos = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
+function newRun() { G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.adCos = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
 function newGame(ura, endless) { newRun(); G.ura = !!ura; G.endless = !!endless; G.test = false; G.score = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 }; G.play = 0; startStage(0, true); }
 function toTitle() {
-  endDaily(); G.bossMode = null; setBossModeButtons(); closePanel(); if (G.tut) endTut(false);
+  endDaily(); G.bossMode = null; G.rush = null; setBossModeButtons(); closePanel(); if (G.tut) endTut(false);
   G.mode = 'title'; G.stage = 0; G.decor = []; G.ents = []; G.bullets = []; G.parts = []; G.texts = []; G.boss = null; G.death = null; G.banner = null; G.queue = []; G.cutin = null;
   resetPlayer(true); P.y = H - 190;
   for (const o of [ovOver, ovClear, ovEnd, ovPause]) o.hidden = true;
@@ -3222,7 +3235,8 @@ function revive() {
 function giveStartDrink() { G.drinkStock = 1; text('ドリンクを1本持って出発！', P.x, P.y - 130, 18, '#ffe27a'); }
 // ボスモードのときだけ結果画面のボタンを差し替える
 function setBossModeButtons() {
-  nextBtn.textContent = G.bossMode ? 'もう一度ボスに挑む' : '次のフロアへ';
+  nextBtn.textContent = G.rush ? 'もう一度ボスラッシュ' : G.bossMode ? 'もう一度ボスに挑む' : '次のフロアへ';
+  $('clearBig').textContent = 'フロア突破'; // ボスラッシュの結果で書き換えたものを戻す
   $('nextDrinkBtn').hidden = !!G.bossMode;
   $('clearBossBtn').hidden = $('clearTitleBtn').hidden = !G.bossMode;
 }
@@ -3728,7 +3742,7 @@ function seeded(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) 
 function startDaily() {
   const info = dailyInfo();
   auInit(); closePanel();
-  G.daily = info; G.dailyDiff = null; G.bossMode = null; G.endless = false; G.loop = 0; G.ura = info.ura; G.test = false; G.revived = false; G.graze = 0; G.runId = Date.now();
+  G.daily = info; G.dailyDiff = null; G.bossMode = null; G.rush = null; G.endless = false; G.loop = 0; G.ura = info.ura; G.test = false; G.revived = false; G.graze = 0; G.runId = Date.now();
   G.score = 0; G.play = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 };
   Math.random = seeded(info.key); // 同じ日は同じ並びで敵が出る
   startStage(info.stage, true);
@@ -3741,6 +3755,7 @@ function unlockBoss(key) {
   if (G.test || bossUnlocked(key)) return;
   META.bosses[key] = Date.now(); saveMeta();
   toast('ボスモード解放：' + BOSSES[key].name);
+  if (rushUnlocked()) toast(`ボスラッシュ解放：ボスモードから${STAGES.length}連戦`);
 }
 function startBossMode(key) {
   const i = STAGES.findIndex(st => st.boss === key);
@@ -3756,6 +3771,21 @@ function recordBossTime(key, sec) {
   return best;
 }
 const fmtSec = s => s.toFixed(1) + '秒';
+/* ボスラッシュ：全ボスを1面の順に連戦。脂肪とドリンクは持ち越し、記録は合計タイム（META.bossBest.rush） */
+const rushUnlocked = () => STAGES.every(st => bossUnlocked(st.boss));
+function startBossRush() {
+  if (!rushUnlocked()) return;
+  auInit(); closePanel(); newRun();
+  G.rush = { i: 0, splits: [] }; G.bossMode = STAGES[0].boss;
+  G.ura = false; G.test = false; G.score = 0; G.play = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 };
+  startStage(0, true);
+}
+// 次のボスへ。結果画面は挟まず、出口をくぐったら少し間をおいて始める
+function nextRushBoss() {
+  if (!G.rush || G.mode !== 'clear') return; // 待っている間にタイトルへ戻った
+  const i = ++G.rush.i; G.bossMode = STAGES[i].boss;
+  startStage(i, false);
+}
 function showBossMode() {
   const row = (st, i) => {
     const d = BOSSES[st.boss], have = bossUnlocked(st.boss), t = META.bossBest[st.boss];
@@ -3763,8 +3793,12 @@ function showBossMode() {
       ? `<button type="button" class="boss" data-boss="${st.boss}"><b>${esc(d.name)}　${esc(d.who)}</b><small>${esc(st.name)}のボス　最速 ${t ? fmtSec(t) : '―'}</small></button>`
       : `<button type="button" class="boss" disabled><b>？？？</b><small>${esc(st.name)}のボスを倒すと解放</small></button>`;
   };
-  openPanel('ボスモード', `<p class="pnote">倒したボスと、脂肪満タンで何度でも戦えます。スコアはランキングに入りません。</p><div class="bossgrid">${STAGES.map(row).join('')}</div>`);
+  const rt = META.bossBest.rush, rush = rushUnlocked()
+    ? `<button type="button" class="boss rush" id="rushBtn"><b>ボスラッシュ　${STAGES.length}連戦</b><small>脂肪は持ち越し　最速 ${rt ? fmtSec(rt) : '―'}</small></button>`
+    : `<button type="button" class="boss rush" disabled><b>ボスラッシュ</b><small>全てのボスを倒すと解放</small></button>`;
+  openPanel('ボスモード', `<p class="pnote">倒したボスと、脂肪満タンで何度でも戦えます。スコアはランキングに入りません。</p><div class="bossgrid">${rush}${STAGES.map(row).join('')}</div>`);
   panelBody.querySelectorAll('.boss[data-boss]').forEach(b => b.addEventListener('click', () => startBossMode(b.dataset.boss)));
+  if (rush) $('rushBtn')?.addEventListener('click', startBossRush);
 }
 
 /* ================= ランキング（端末内の上位10件） ================= */
@@ -3896,15 +3930,15 @@ else {
     G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 }; startStage(+btn.dataset.stage, true);
   }));
 }
-retryBtn.addEventListener('click', () => { auInit(); if (G.endless) newGame(false, true); else { G.score = G.stageScore || 0; startStage(G.stage, true); } });
+retryBtn.addEventListener('click', () => { auInit(); if (G.endless) newGame(false, true); else if (G.rush) startBossRush(); else { G.score = G.stageScore || 0; startStage(G.stage, true); } });
 $('overTitleBtn').addEventListener('click', toTitle);
-nextBtn.addEventListener('click', () => { auInit(); if (G.bossMode) startBossMode(G.bossMode); else startStage(nextStageIdx(), false); });
+nextBtn.addEventListener('click', () => { auInit(); if (G.rush) startBossRush(); else if (G.bossMode) startBossMode(G.bossMode); else startStage(nextStageIdx(), false); });
 $('clearBossBtn').addEventListener('click', () => { toTitle(); showBossMode(); });
 $('clearTitleBtn').addEventListener('click', toTitle);
 againBtn.addEventListener('click', () => { auInit(); if (G.daily) startDaily(); else newGame(G.ura, G.endless); });
 // 広告ボタン（報酬の中身はボタンに明記）
 $('reviveBtn').addEventListener('click', async () => { if (await Ads.reward('その場で復活')) revive(); else musicResume(); });
-$('retryDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンク付きで再挑戦')) { G.score = G.stageScore || 0; startStage(G.stage, true); giveStartDrink(); } });
+$('retryDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンク付きで再挑戦')) { if (G.rush) startBossRush(); else { G.score = G.stageScore || 0; startStage(G.stage, true); } giveStartDrink(); } });
 $('nextDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンクを持って次へ')) { startStage(nextStageIdx(), false); giveStartDrink(); } });
 // 広告：まだ持っていない着せ替えを1つ解放（ランダム・1回のプレイで1度だけ）
 for (const id of ['cosOver', 'cosEnd']) $(id).addEventListener('click', async () => {
@@ -3926,7 +3960,7 @@ $('heroLine').innerHTML = heroHTML();
 function shareText() {
   const st = STAGES[G.stage], cleared = !ovEnd.hidden;
   const where = cleared ? '全ステージ突破' : (G.death && G.death.type === 'starve' ? st.name + 'で燃え尽き' : st.name + 'で残業確定');
-  return `メタボリック・バースト${G.bossMode ? '［ボスモード］' : G.ura ? '［裏］' : G.endless ? `［エンドレス${G.loop + 1}周目］` : ''} ${HERO.family}係長、${where} SCORE ${fmt(G.score)} #メタボリックバースト`;
+  return `メタボリック・バースト${G.rush ? '［ボスラッシュ］' : G.bossMode ? '［ボスモード］' : G.ura ? '［裏］' : G.endless ? `［エンドレス${G.loop + 1}周目］` : ''} ${HERO.family}係長、${where} SCORE ${fmt(G.score)} #メタボリックバースト`;
 }
 for (const [btnId, outId] of [['shareOver', 'shareOverText'], ['shareEnd', 'shareEndText']]) {
   const btn = $(btnId), out = $(outId);
