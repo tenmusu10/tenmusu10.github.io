@@ -215,13 +215,13 @@ body{
     <button id="pauseBtn" class="pause" type="button" hidden aria-label="一時停止">II</button>
 
     <section id="ovTitle" class="ov dim">
-      <div class="kicker">弾幕系・社会的一発死アクション</div>
+      <div class="kicker">弾幕系・脂肪で撃つ退勤アクション</div>
       <h1 class="logo"><span class="a">メタボリック</span><span class="b">バースト</span><span class="seal">クソゲー</span></h1>
       <p class="sub">～決死の退勤エスケープ～</p>
       <p id="heroLine" class="hero"></p>
       <button id="startBtn" class="card" type="button"><span class="l">退勤を打刻</span><span class="r">定時<strong>18:00</strong></span></button>
       <div class="modes">
-        <button id="uraBtn" class="ura" type="button">裏モード突入<small>敵1.7倍・<wbr>弾速UP・<wbr>ボス1.5倍硬い</small></button>
+        <button id="uraBtn" class="ura" type="button">裏モード突入<small>敵1.7倍・<wbr>弾速UP・<wbr>ボス1.3倍硬い</small></button>
         <button id="endlessBtn" class="ura endless" type="button">エンドレス残業<small>3面を周回・<wbr>周るほど高得点</small></button>
       </div>
       <nav class="menu" aria-label="メニュー">
@@ -330,7 +330,8 @@ body{
           <li><b>スワイプ</b>で<wbr>上下左右に<wbr>移動。<wbr>当たり判定は<wbr><b>お腹</b>で、<wbr>見た目より<wbr>ちょっと<wbr>小さめ。</li>
           <li><b>赤く光る・<wbr>赤い点線</b>は<wbr>障害物。<wbr>当たると<wbr>残業確定。<wbr><b style="color:#146b38">緑に光る＋1</b>は<wbr>食べ物。</li>
           <li>右下の<wbr><b>「撃つ」</b>で<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>移動中は<wbr>もう1本の<wbr>指で<wbr>タップすると<wbr>発射、<wbr>下に<wbr>引っ張ると<wbr>狙い撃ち。</li>
-          <li>撃つほど<wbr>痩せて<wbr>当たり判定が<wbr>小さくなる。<wbr>でも<wbr>脂肪<b>0</b>のまま<wbr>2秒<wbr>たつと<wbr>ガリガリに<wbr>燃え尽きて<wbr>終了。<wbr>すぐ<wbr>食べれば<wbr>助かる。</li>
+          <li>当たっても<wbr><b>残機</b>が<wbr>あれば<wbr>その場で<wbr>立て直せる<wbr>（最初は2つ・<wbr>再挑戦で<wbr>満タン）。</li>
+          <li>撃つほど<wbr>痩せて<wbr>当たり判定が<wbr>小さくなる。<wbr>でも<wbr>脂肪<b>0</b>のまま<wbr>2秒<wbr>たつと<wbr>ガリガリに<wbr>燃え尽きる。<wbr>すぐ<wbr>食べれば<wbr>助かる。</li>
           <li>太っているほど<wbr>スコアが伸びる。<wbr>食べて回復：<wbr>おにぎり／<wbr>からあげは<wbr>貫通弾／<wbr>マシマシラーメンは<wbr>全回復。</li>
           <li><b>栄養ドリンク</b>は<wbr>1本まで<wbr>持てる。<wbr>右下の<wbr><b>「無敵」</b>で<wbr>好きなときに<wbr>6秒間無敵。<wbr>障害物に<wbr>体当たりで<wbr>粉砕。<wbr>ボスへの<wbr>体当たりは<wbr>1本で2回まで。</li>
           <li>壊した物で<wbr>点が違う<wbr>（部長500・<wbr>車400・<wbr>上司200 など）。<wbr>無敵中の<wbr>体当たりは<wbr>2倍で、<wbr>続けて壊すほど<wbr>最大×3。</li>
@@ -378,7 +379,7 @@ const COL = {
 
 const STAGES = [
   { name: 'STAGE 1', place: '本社5F 営業部前廊下', theme: 'office', len: 8200, speed: 165, density: 1.0, boss: 'shacho', pats: ['pile', 'stamp', 'fan', 'joushi', 'bucho', 'belt', 'gate', 'nway'] },
-  { name: 'STAGE 2', place: 'オフィス街 駅前通り', theme: 'street', len: 9000, speed: 176, density: 1.15, boss: 'client', pats: ['pile', 'stamp', 'fan', 'joushi', 'bucho', 'car', 'nway'] },
+  { name: 'STAGE 2', place: 'オフィス街 駅前通り', theme: 'street', len: 9000, speed: 176, density: 1.05, boss: 'client', pats: ['pile', 'stamp', 'fan', 'joushi', 'bucho', 'car', 'nway'] },
   { name: 'STAGE 3', place: '飲み屋街 ガード下', theme: 'izakaya', len: 9800, speed: 186, density: 1.2, boss: 'senmu', pats: ['pile', 'stamp', 'fan', 'joushi', 'bucho', 'car', 'drunk', 'nway', 'refl'] },
 ];
 const THEMES = {
@@ -390,7 +391,7 @@ const TH = () => THEMES[STAGES[G.stage].theme];
 // 難易度：裏モードは弾幕の密度・速さ・ボスの硬さを引き上げる
 const DIFFS = {
   normal: { density: 1, shot: 1, stampN: 0, fanN: 0, spread: 1.35, ringGap: 0.7, ringN: 0, rain: 1, bossHP: 1, open: 1, gap: 1, item: 1, drink: 1, dash: 1, buchoHP: 3, warn: 0.9, car: 560, gateGap: 150, gateSpd: 1.3 },
-  ura: { density: 1.7, shot: 1.25, stampN: 1, fanN: 3, spread: 1.2, ringGap: 0.5, ringN: 5, rain: 1.5, bossHP: 1.5, open: 0.75, gap: 0.55, item: 1.3, drink: 1.4, dash: 1.1, buchoHP: 4, warn: 0.75, car: 650, gateGap: 140, gateSpd: 1.7 },
+  ura: { density: 1.7, shot: 1.25, stampN: 1, fanN: 3, spread: 1.2, ringGap: 0.5, ringN: 5, rain: 1.5, bossHP: 1.3, open: 0.75, gap: 0.55, item: 1.3, drink: 1.4, dash: 1.1, buchoHP: 4, warn: 0.75, car: 650, gateGap: 140, gateSpd: 1.7 },
 };
 function D() {
   const base = G.ura ? DIFFS.ura : DIFFS.normal;
@@ -404,9 +405,9 @@ function D() {
   return G.dailyDiff || (G.dailyDiff = Object.assign({}, base, { item: base.item * (m === 'food2' ? 0.5 : 1), shot: base.shot * (m === 'fast' ? 1.2 : 1), drink: m === 'nodrink' ? 999 : base.drink }));
 }
 const BOSSES = {
-  senmu: { name: '専務取締役', who: '酒井 呑兵衛', read: 'さかい のんべえ', epi: '終電を許さぬ 飲み屋街の主', hp: 9, faceR: 24, faceY: -54, attacks: ['stamp3', 'fixed', 'rain', 'bounce', 'summon', 'dash', 'ring', 'bounce', 'dash'] },
-  shacho: { name: '代表取締役社長', who: '鬼瓦 権蔵', read: 'おにがわら ごんぞう', epi: '創業以来 定時退社ゼロの男', hp: 6, faceR: 25, faceY: -50, attacks: ['stamp3', 'fixed', 'rain', 'summon', 'ring', 'fixed'] },
-  client: { name: '超大口クライアント', who: '無理田 言造', read: 'むりた いうぞう', epi: '納期前日に 仕様を変える者', hp: 8, faceR: 23, faceY: -60, attacks: ['spec', 'fixed', 'phone', 'dash', 'rain', 'fixed', 'dash', 'phone'] },
+  senmu: { name: '専務取締役', who: '酒井 呑兵衛', read: 'さかい のんべえ', epi: '終電を許さぬ 飲み屋街の主', hp: 18, faceR: 24, faceY: -54, attacks: ['stamp3', 'fixed', 'rain', 'bounce', 'summon', 'dash', 'ring', 'bounce', 'dash'] },
+  shacho: { name: '代表取締役社長', who: '鬼瓦 権蔵', read: 'おにがわら ごんぞう', epi: '創業以来 定時退社ゼロの男', hp: 15, faceR: 25, faceY: -50, attacks: ['stamp3', 'fixed', 'rain', 'summon', 'ring', 'fixed'] },
+  client: { name: '超大口クライアント', who: '無理田 言造', read: 'むりた いうぞう', epi: '納期前日に 仕様を変える者', hp: 12, faceR: 23, faceY: -60, attacks: ['spec', 'fixed', 'phone', 'dash', 'rain', 'fixed', 'dash', 'phone'] },
 };
 // ボスの業務命令：体力が一定まで減ると宣言する特別な攻撃（at＝体力の割合）。tag は件名の【】に入る分類
 const ORDERS = {
@@ -424,6 +425,10 @@ const ORDERS = {
     { id: 'rondo', at: 0.25, tag: '千鳥', name: '千鳥足ロンド', say: 'まっすぐ歩けてるって…' },
   ],
 };
+// 業務命令を却下するのに顔へ当てる回数（跳ね返しでしか当たらないクライアントは1少ない）。最後の命令はボスの体力が尽きるまで
+const ORDER_HITS = 3;
+// 残機（その場で立て直せる回数）。プレイ開始時の数。2面の中ボスが1回だけエクステンド（1UP）を落とす
+const LIVES = 2, LIVES_MAX = 4;
 const ORDER_CUT = 1.9;  // 宣言の演出の長さ（この間は弾を撃たない）
 const ORDER_DUR = 22;   // 制限時間
 const POP = [3, 4, 2, 5, 1, 0];     // 脂肪を消費する順番
@@ -1527,6 +1532,10 @@ function drawFood(c, kind, x, y, t) {
     c.strokeStyle = '#d8b67a'; c.lineWidth = 1.5; line(c, -12, 12, 10, -12);
     for (const [px, py, r] of [[-5, 3, 8], [5, 2, 7.5], [0, -5, 7]]) drawFat(c, px, py, r, 'karaage', px);
     c.fillStyle = '#f7e04a'; c.beginPath(); c.moveTo(8, 8); c.arc(8, 8, 6, 0, Math.PI * 0.6); c.closePath(); c.fill();
+  } else if (kind === 'oneup') { // 係長の顔（残機の表示と同じ）
+    c.fillStyle = COL.ink; circ(c, 0, 0, 13); c.fill(); c.fillStyle = COL.skin; circ(c, 0, 0, 11); c.fill();
+    c.strokeStyle = '#26292d'; c.lineWidth = 1.4; rr(c, -8, -4, 6, 5, 1.5); c.stroke(); rr(c, 2, -4, 6, 5, 1.5); c.stroke();
+    c.strokeStyle = '#6a2520'; c.beginPath(); c.arc(0, 4, 4, 0.2, Math.PI - 0.2); c.stroke();
   } else if (kind === 'drink') {
     c.fillStyle = '#5a2a0e'; rr(c, -7, -12, 14, 26, 4); c.fill();
     c.fillStyle = '#7a3a14'; rr(c, -4, -18, 8, 8, 2); c.fill();
@@ -1876,6 +1885,7 @@ const ITEM_STYLE = {
   onigiri: { glow: '70,225,130', ring: 'rgba(150,255,190,.95)', col: '#178a48', badge: '+1', label: 'おにぎり' },
   karaage: { glow: '70,225,130', ring: 'rgba(150,255,190,.95)', col: '#178a48', badge: '+1', label: 'からあげ（貫通）' },
   ramen: { glow: '255,120,170', ring: 'rgba(255,190,215,.95)', col: '#d23a6e', badge: '全回復', label: 'マシマシラーメン' },
+  oneup: { glow: '120,255,170', ring: 'rgba(190,255,215,.95)', col: '#1f9d55', badge: '1UP', label: 'エクステンド' },
   drink: { glow: '255,200,40', ring: 'rgba(255,230,120,.95)', col: '#a87200', badge: '無敵', label: '栄養ドリンク' },
 };
 function drawItem(c, e) {
@@ -1888,7 +1898,7 @@ function drawItem(c, e) {
   c.strokeStyle = st.ring; c.lineWidth = 2.4; c.setLineDash([6, 5]); circ(c, 0, 0, 21); c.stroke();
   c.restore();
   drawFood(c, e.kind, x, y, e.t);
-  if (e.kind === 'ramen' || e.kind === 'drink') for (let k = 0; k < 3; k++) { const a = e.t * 2 + k * TAU / 3; star(c, x + Math.cos(a) * 22, y + Math.sin(a) * 14, 3 + pulse * 2, '#fff'); }
+  if (e.kind === 'ramen' || e.kind === 'drink' || e.kind === 'oneup') for (let k = 0; k < 3; k++) { const a = e.t * 2 + k * TAU / 3; star(c, x + Math.cos(a) * 22, y + Math.sin(a) * 14, 3 + pulse * 2, '#fff'); }
   c.font = F.px(11); const bw = c.measureText(st.badge).width + 12;
   c.fillStyle = st.col; rr(c, x + 10, y - 30, bw, 16, 8); c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
   txt(c, st.badge, x + 10 + bw / 2, y - 21.5, F.px(11), '#fff');
@@ -2448,7 +2458,7 @@ function bossAttack(b) {
     for (let v = 0; v < (G.ura ? 3 : 2); v++) later(0.3 + v * 0.7, () => { const n = G.ura ? 6 : 4; for (let i = 0; i < n; i++) { const s = i % 2 ? 1 : -1, a = Math.PI / 2 + s * (0.55 + Math.floor(i / 2) * 0.22 + (v % 2 ? 0.1 : 0)); shoot('stamp', faceX(), faceY(), a, G.ura ? 190 : 160, { skin: 'refl', refl: 1, r: 12 }); } sfx('shred'); });
     open(2.2);
   } else if (name === 'phone') {
-    for (let i = 0; i < 3 + s2; i++) later(0.3 + i * 0.45, () => shoot('phone', faceX(), faceY(), Math.atan2(P.y - faceY(), P.x - faceX()) + rnd(-0.5, 0.5), 170, { hard: true })); // 追ってくる電話は硬い弾
+    for (let i = 0; i < 2 + s2; i++) later(0.3 + i * 0.45, () => shoot('phone', faceX(), faceY(), Math.atan2(P.y - faceY(), P.x - faceX()) + rnd(-0.5, 0.5), 170, { hard: true, home: 1.5 })); // 追ってくる電話は硬い弾（消せない分、数と追う時間を減らす）
     open(2.2);
   } else if (name === 'dash') {
     b.dash = { phase: 'tele', t: 0, tx: clamp(P.x, WL + 50, WR - 50) };
@@ -2511,7 +2521,7 @@ function bossKO() {
 function declareOrder(b, def) {
   const list = ORDERS[b.kind], final = b.orderIdx === list.length - 1;
   b.orderIdx = (b.orderIdx || 0) + 1;
-  b.order = { id: def.id, name: `【${G.ura ? '裏・' : ''}${def.tag}】${def.name}`, t: -ORDER_CUT, final, endHp: final ? 0 : Math.max(0, b.hp - (G.ura && b.kind !== 'client' ? 2 : 1)), drinkUsed: false, v: 0, et: 0, a: 0 };
+  b.order = { id: def.id, name: `【${G.ura ? '裏・' : ''}${def.tag}】${def.name}`, t: -ORDER_CUT, final, endHp: final ? 0 : Math.max(0, b.hp - ORDER_HITS - (G.ura ? 1 : 0) + (b.kind === 'client' ? 1 : 0)), drinkUsed: false, v: 0, et: 0, a: 0 };
   G.queue = []; b.openT = 0; b.dash = null;
   for (const e of G.ents) if (e.shot || (e.harm && e.type === 'joushi')) { e.dead = true; sparks(e.x, e.y, 2, '#ffe27a'); }
   G.cutin = { kind: b.kind, name: b.order.name, say: def.say, t: 0, no: b.orderIdx };
@@ -2970,6 +2980,9 @@ function bulletProg(e, dt) {
 }
 function pickup(e) {
   G.stats.items++; addScore(50); Haptic.tap('light');
+  if (e.kind === 'oneup') { // エクステンド：残機+1
+    G.lives = Math.min(LIVES_MAX, (G.lives || 0) + 1); text('1UP！ 残機+1', P.x, P.y - 122, 20, '#9dffbf'); sfx('kit'); G.flash = 0.3; G.flashCol = '#d9ffe6'; ring(P.x, P.y, 120, '#9dffbf', 6); return;
+  }
   if (e.kind === 'drink') { // 持てるのは1本まで。好きなときに使う
     if (G.drinkStock) { addScore(300); text('ドリンクは1本まで（+300点）', P.x, P.y - 122, 14, '#ffe27a'); sfx('pick'); return; }
     G.drinkStock = 1; text('ドリンク確保！', P.x, P.y - 122, 18, '#ffe27a'); sfx('kit');
@@ -3146,7 +3159,7 @@ function collisions() {
       if (b.dead || e.dead || b.hit.has(e.id) || (!e.shot && !e.solid)) continue;
       if (!bulletHits(b, e)) continue;
       b.hit.add(e.id);
-      if (e.hard) { sparks(b.x, b.y, 6, '#d8e0e8'); text('カキン!', e.x, e.y - 22, 13, '#d8e0e8'); sfx('graze'); continue; } // 硬い弾は消えない（脂肪弾もそのまま飛ぶ）
+      if (e.hard) { b.vy = Math.abs(b.vy) * 0.6 + 120; b.vx = b.vx * 0.5 + rnd(-90, 90); sparks(b.x, b.y, 6, '#d8e0e8'); text('カキン!', e.x, e.y - 22, 13, '#d8e0e8'); sfx('boyon'); continue; } // 硬い弾は消えず、脂肪弾が弾かれて戻ってくる（キャッチで脂肪に戻る）
       if (e.shot) { e.dead = true; burst(e.x, e.y, 6, e.type === 'stamp' ? '#f4c3bd' : null); sfx('shred'); addScore(OBJ_PTS[e.type] || 20); continue; }
       e.hp -= b.dmg; e.hurt = 0.18; b.pierce--;
       if (e.hp <= 0) {
@@ -3154,7 +3167,7 @@ function collisions() {
         text(KILL_LINE[e.type] || '粉砕!', e.x, e.y - 20, e.type === 'bucho' || e.type === 'mid' ? 20 : 16, '#fff');
         sfx('crush'); G.shake = Math.max(G.shake, e.type === 'bucho' ? 12 : 6);
         if (e.type === 'bucho' && Math.random() < 0.75) addEnt({ type: 'item', kind: 'karaage', x: e.x, y: e.y, r: 13 });
-        if (e.type === 'mid') { countUp('mid', 3, 'mid3'); addEnt({ type: 'item', kind: 'ramen', x: e.x, y: e.y, r: 13 }); smashFx(e.x, e.y, SMASH_COL.bucho, '中ボス撃破!!', OBJ_PTS.mid); for (const q of G.ents) if (q.shot) q.dead = true; }
+        if (e.type === 'mid') { countUp('mid', 3, 'mid3'); addEnt({ type: 'item', kind: 'ramen', x: e.x, y: e.y, r: 13 }); if (G.stage === 1 && !G.extended) { G.extended = true; addEnt({ type: 'item', kind: 'oneup', x: clamp(e.x + 70, WL + 40, WR - 40), y: e.y, r: 13 }); } /* エクステンドは1回のプレイで1個だけ */ smashFx(e.x, e.y, SMASH_COL.bucho, '中ボス撃破!!', OBJ_PTS.mid); for (const q of G.ents) if (q.shot) q.dead = true; }
       } else { text('ぐふっ', e.x, e.y - 30, 15, '#fff'); sfx('boyon'); }
       if (b.pierce < 0) b.dead = true;
     }
@@ -3202,7 +3215,7 @@ function collisions() {
       if (!(G.bossBumpT > 0)) {
         G.bossBumpT = 1.6;
         if ((G.bossSlams || 0) < 2) {
-          G.bossSlams = (G.bossSlams || 0) + 1; bo.hp -= 1; bo.hurt = 0.5; smashFx(bo.x, bo.y + 10, ['#1f2a44', '#f4f2ea', '#d9a521'], '体当たり!!', 500);
+          G.bossSlams = (G.bossSlams || 0) + 1; bo.hp -= 2; bo.hurt = 0.5; smashFx(bo.x, bo.y + 10, ['#1f2a44', '#f4f2ea', '#d9a521'], '体当たり!!', 500);
           if (bo.hp <= 0) { bossKO(); return; }
         } else { text('もう効かない！', bo.x, bo.y - 60, 16, '#fff'); sfx('graze'); }
         P.y = clamp(P.y + 60, YMIN, YMAX); P.ty = clamp(P.y + 110, YMIN, YMAX); P.vy = 380; G.shake = Math.max(G.shake, 8);
@@ -3218,6 +3231,7 @@ function collisions() {
 /* ================= 死亡・クリア ================= */
 function die(type, by, killer) {
   if (G.mode !== 'play') return;
+  if (G.lives > 0) { loseLife(type, killer); return; } // 残機があればその場で立て直す
   const k = killer ? { x: killer.x, y: killer.y, r: Math.max(killer.r || 0, (killer.w || 0) / 2, (killer.h || 0) / 2, 14) + 12 } : null;
   G.mode = 'dying'; G.death = { type, by, t: 0, slam: false, killer: k, hb: hitbox() };
   P.charging = false; chargeSound(false); musicStop(); ptr = mptr = fptr = null;
@@ -3359,6 +3373,9 @@ function startStage(i, freshAmmo) {
   G.parts = []; G.texts = []; G.bossIntro = null; G.notice = null; G.cutin = null;
   G.tut = null; $('tutCard').hidden = true; G.stageScore = G.score || 0; G.combo = 0; G.comboT = 0; G.invSmash = 0; G.bossBumpT = 0; G.bossSlams = 0; G.midDone = false;
   resetPlayer(!!freshAmmo);
+  // 残機は1回のプレイで持ち越す。同じフロアの再挑戦では、そのフロアに入ったときの数に戻す（満タンにはしない）
+  if (G.livesAt && G.livesAt.run === G.runId && G.livesAt.stage === i) G.lives = G.livesAt.lives;
+  else G.livesAt = { run: G.runId, stage: i, lives: G.lives };
   P.noShirt = false;
   G.mode = 'play';
   const st = STAGES[i];
@@ -3370,7 +3387,7 @@ function startStage(i, freshAmmo) {
   if (G.bossMode) { G.bossStart = G.play; startBoss(); setBossModeButtons(); return; } // ボスモードは道中なしでいきなりボス戦
   if (i === 0 && !G.ura && !G.daily && !G.endless && !tutDone()) startTut(); // 通常モードの1面で、まだ見ていない人だけ
 }
-function newRun() { G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.adCos = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
+function newRun() { G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.adCos = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
 function newGame(ura, endless) { newRun(); G.ura = !!ura; G.endless = !!endless; G.test = false; G.score = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 }; G.play = 0; startStage(0, true); }
 function toTitle() {
   endDaily(); G.bossMode = null; G.rush = null; setBossModeButtons(); closePanel(); if (G.tut) endTut(false);
@@ -3379,15 +3396,30 @@ function toTitle() {
   for (const o of [ovOver, ovClear, ovEnd, ovPause]) o.hidden = true;
   ovTitle.hidden = false; pauseBtn.hidden = true; musicStart(); updateBestLine();
 }
-// 広告：その場で復活（脂肪3個・1回のプレイで1度だけ）
-function revive() {
-  G.revived = true; ovOver.hidden = true;
+// 残機を1つ使う：弾は消さず、少しの間だけ無敵にしてその場で続ける（燃え尽きたときだけ脂肪を3個まで戻す）
+function loseLife(type, killer) {
+  G.lives--; G.stats.miss = (G.stats.miss || 0) + 1;
+  if (killer) ring(killer.x, killer.y, 60, COL.hanko, 6);
+  if (type === 'starve') { for (let i = 0; i < 6 && ammo() < 3; i++) if (!P.slot[i]) P.slot[i] = 'fat'; P.noShirt = false; P.fat = ammo() / 6; P.fatV = 0; P.jacket = jacketTarget(); }
+  P.inv = 2.5; G.invSmash = 0; G.pending = null; G.bossSlams = 2; // この無敵ではボスに体当たりダメージが入らない
+  G.hitstop = 0.45; G.flash = 0.6; G.flashCol = type === 'starve' ? '#fff' : '#ffd0cc'; G.shake = 12;
+  text(type === 'starve' ? '燃え尽きかけた…！' : 'ギリギリ持ち直した！', P.x, P.y - 150, 20, '#fff');
+  text(G.lives ? `残機 あと${G.lives}` : 'もう後がない！', P.x, P.y - 124, 16, G.lives ? COL.memo : '#ff8d84');
+  sfx('hit'); Haptic.tap('heavy');
+}
+// 広告の復活：周りの弾を消し、脂肪を3個まで戻して少し無敵
+function respawn() {
   for (const e of G.ents) if (e.shot || (e.harm && e.type !== 'gate' && Math.hypot(e.x - P.x, e.y - P.y) < 280)) { e.dead = true; burst(e.x, e.y, 6); }
   G.queue = [];
   if (G.boss && G.boss.dash) { G.boss.dash = null; G.boss.y = G.boss.ty; }
   for (let i = 0; i < 6 && ammo() < 3; i++) if (!P.slot[i]) P.slot[i] = 'fat';
   P.noShirt = false; P.fat = ammo() / 6; P.fatV = 0; P.jacket = jacketTarget(); P.inv = 2.5; G.invSmash = 0;
-  G.pending = null; G.death = null; G.mode = 'play'; G.hitstop = 0; G.shake = 0;
+  G.pending = null; G.death = null; G.mode = 'play';
+}
+// 広告：その場で復活（脂肪3個・1回のプレイで1度だけ）
+function revive() {
+  G.revived = true; ovOver.hidden = true;
+  respawn(); G.hitstop = 0; G.shake = 0;
   G.parts = G.parts.filter(p => p.type !== 'ink' && p.type !== 'shirt');
   G.flash = 0.7; G.flashCol = '#fff'; pauseBtn.hidden = false;
   text('復活！', P.x, P.y - 130, 28, '#ffe27a'); sfx('kit'); Haptic.tap('medium'); musicResume();
@@ -3559,6 +3591,13 @@ function drawHUD(c) {
     if (comboMult(G.combo) > 1) txt(c, '×' + comboMult(G.combo).toFixed(1), 0, 30, F.dg(16), '#fff', 'center', COL.ink, 4);
     c.restore();
   }
+  // 下のパネルの上：残機（顔のアイコンを並べる）
+  for (let i = 0; i < (G.lives || 0); i++) {
+    const x = 22 + i * 22, y = H - 74;
+    c.fillStyle = COL.ink; circ(c, x, y, 9); c.fill(); c.fillStyle = COL.skin; circ(c, x, y, 7.5); c.fill();
+    c.strokeStyle = '#26292d'; c.lineWidth = 1; rr(c, x - 5, y - 2.5, 4, 3, 1); c.stroke(); rr(c, x + 1, y - 2.5, 4, 3, 1); c.stroke();
+  }
+  if (G.lives > 0) txt(c, '残機', 22 + G.lives * 22 - 4, H - 74, F.zk(10, 700), '#fff', 'left', COL.ink, 3);
   // 下：自分の体脂肪（ボスの表示と分けるため別パネル・別配色）
   const a = ammo(), low = a <= 1, blink = low && Math.floor(G.t * 6) % 2 === 0;
   const py = H - 58, pw = 270;
@@ -4187,7 +4226,7 @@ const TIP_W = 320, TIP_H = 170;
 const TIPS = [
   {
     id: 'hard', title: '硬い弾（鉄の輪）',
-    body: '<b>鉄の輪とボルト</b>が付いた弾は、脂肪弾で<b>消せません</b>。撃っても弾は通り抜けるので、動いてよけよう。',
+    body: '<b>鉄の輪とボルト</b>が付いた弾は、脂肪弾で<b>消せません</b>。動いてよけよう。当てた脂肪弾は<b>弾かれて戻ってくる</b>ので、キャッチすれば脂肪に戻る。',
     art(c) {
       tipFloor(c);
       const st = { x: 92, y: 52, r: 14, rot: 0, word: '決裁' }, hd = { x: 228, y: 52, r: 14, rot: 0, word: '決裁' };
