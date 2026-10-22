@@ -148,6 +148,8 @@ body{
 .tskip:focus-visible{outline:.6cqw solid var(--memo);outline-offset:.4cqw}
 .hero{margin:0;font-size:3.2cqw;font-weight:700;color:var(--paper);opacity:.85}.hero rt{font-size:1.9cqw;opacity:.8}
 .best{font-family:var(--f-pixel);font-size:3cqw;color:var(--muted);margin:0}
+.applink{font-size:3.2cqw;font-weight:900;color:var(--memo);text-decoration:underline;text-underline-offset:.6cqw;background:rgba(0,0,0,.55);border-radius:1cqw;padding:1cqw 2.4cqw}
+.applink[hidden]{display:none}
 .verdict{margin:0;font-size:4cqw;font-weight:900;line-height:1.55;max-width:84cqw;text-wrap:balance}
 .verdict em{font-style:normal;color:var(--memo)}
 .stats{display:grid;grid-template-columns:auto auto;gap:1cqw 5cqw;font-family:var(--f-pixel);font-size:3.4cqw;color:var(--muted);margin:0;font-variant-numeric:tabular-nums}
@@ -204,6 +206,7 @@ body{
         <button type="button" id="testUra" class="tbtn" aria-pressed="false">裏：OFF</button>
       </div>
       <p id="bestLine" class="best"></p>
+      <a id="appLink" class="applink" target="_blank" rel="noopener" hidden>Android版をGoogle Playで入手</a>
     </section>
 
     <section id="ovPause" class="ov full" hidden>
@@ -300,6 +303,10 @@ body{
 'use strict';
 // タイトルのテスト用ステージ選択。npm run release で作る公開用ビルドでは自動で false になる
 const SHOW_TEST = false;
+// Google Play で一般公開したら true にする。ブラウザ版のタイトルに Android版へのリンクが出る（アプリ版には出ない）
+// クローズドテスト中はテスター以外がリンクを開けないため false のまま
+const PLAY_PUBLIC = false;
+const PLAY_URL = 'https://play.google.com/store/apps/details?id=io.github.tenmusu10.metaboburst';
 /* ================= 基本設定 ================= */
 const W = 420, H = 860, WL = 34, WR = W - 34;
 const K = 1.32; // おじさんの描画倍率
@@ -3921,6 +3928,8 @@ $('mSet').addEventListener('click', showSettings);
 $('uraBtn').addEventListener('click', () => { auInit(); newGame(true); });
 $('endlessBtn').addEventListener('click', () => { auInit(); newGame(false, true); });
 // テスト用：好きなステージから開始（脂肪は満タン、スコアは0から）
+// ブラウザ版だけ Google Play への導線を出す（config.js の PLAY_PUBLIC）
+if (PLAY_PUBLIC && !isNative()) { $('appLink').href = PLAY_URL; $('appLink').hidden = false; }
 if (!SHOW_TEST) $('testRow').remove(); // 公開版ではテスト用ボタンを出さない（config.js の SHOW_TEST）
 else {
   const testUra = $('testUra');
