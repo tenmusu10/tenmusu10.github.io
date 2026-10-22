@@ -245,7 +245,7 @@ body{
         <button id="retryDrinkBtn" class="adbtn small" type="button"><span class="adtag">広告</span>ドリンク付きで再挑戦</button>
         <button id="cosOver" class="adbtn small dbl" type="button"><span class="adtag">広告</span>着せ替えを1つ解放</button>
       </div>
-      <button id="shareOver" class="ghost share" type="button">結果をコピー</button>
+      <div class="row"><button id="shareOver" class="ghost share" type="button">結果をコピー</button><button id="postOver" class="ghost share" type="button">Xでポスト</button></div>
       <p id="shareOverText" class="best" hidden></p>
     </section>
 
@@ -273,7 +273,7 @@ body{
         <button id="endTitleBtn" class="ghost" type="button">タイトルへ</button>
       </div>
       <button id="cosEnd" class="adbtn small dbl" type="button"><span class="adtag">広告</span>着せ替えを1つ解放<small>まだ持っていない物からランダム</small></button>
-      <button id="shareEnd" class="ghost share" type="button">結果をコピー</button>
+      <div class="row"><button id="shareEnd" class="ghost share" type="button">結果をコピー</button><button id="postEnd" class="ghost share" type="button">Xでポスト</button></div>
       <p id="shareEndText" class="best" hidden></p>
     </section>
     <section id="ovPanel" class="ov full panel" hidden>
@@ -4178,6 +4178,10 @@ for (const [btnId, outId] of [['shareOver', 'shareOverText'], ['shareEnd', 'shar
     try { navigator.clipboard.writeText(t).then(() => { btn.textContent = 'コピーしました'; }, fallback); } catch (e) { fallback(); }
   });
 }
+// Xでポスト：投稿画面を開くだけ（ログインや送信はX側。アプリ版は外部のブラウザかXアプリで開く）
+const SHARE_URL = PLAY_PUBLIC ? PLAY_URL : 'https://tenmusu10.github.io/metabo-burst/about.html';
+const postUrl = () => 'https://x.com/intent/post?text=' + encodeURIComponent(shareText()) + '&url=' + encodeURIComponent(SHARE_URL);
+for (const id of ['postOver', 'postEnd']) $(id).addEventListener('click', () => { window.open(postUrl(), '_blank', 'noopener'); });
 function resetShare() { for (const [b, o] of [['shareOver', 'shareOverText'], ['shareEnd', 'shareEndText']]) { $(b).textContent = '結果をコピー'; $(o).hidden = true; } }
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.mode === 'play') togglePause(); });
 
