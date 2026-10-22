@@ -158,6 +158,13 @@ body{
 .thead{display:flex;justify-content:space-between;font-family:var(--f-pixel);font-size:2.8cqw;color:var(--memo)}
 .ttext{margin:1.4cqw 0 1.8cqw;font-weight:700;font-size:3.9cqw;line-height:1.6;word-break:auto-phrase}
 .ttext b{color:var(--memo)}
+.ttext .tkey{display:inline-block;font-family:var(--f-display);font-weight:400;font-size:5cqw;color:var(--memo)}
+.ttext b.tdead{color:#ff6b5e;font-size:4.6cqw}
+.tok{color:#9dffbf}
+.tnext{pointer-events:auto;display:block;margin:0 auto 1.8cqw;min-width:44cqw;font-family:var(--f-body);font-weight:900;font-size:4.2cqw;color:var(--ink);border:0;border-radius:5cqw;padding:2.2cqw 6cqw;cursor:pointer;
+  background:linear-gradient(90deg,var(--memo) calc(var(--k,1)*100%),#c9b34a calc(var(--k,1)*100%))}
+.tnext[hidden]{display:none}
+.tnext:focus-visible{outline:.6cqw solid #fff;outline-offset:.4cqw}
 .trow{display:flex;justify-content:center;gap:2cqw}
 .tskip{pointer-events:auto;font-family:var(--f-body);font-weight:700;font-size:3cqw;color:var(--paper);background:rgba(255,255,255,.1);border:.3cqw solid rgba(255,255,255,.35);border-radius:4cqw;padding:1cqw 3cqw;cursor:pointer}
 .tskip:focus-visible{outline:.6cqw solid var(--memo);outline-offset:.4cqw}
@@ -185,8 +192,9 @@ body{
     <div id="fxTint" class="fx"></div><div id="fxVigA" class="fx vig"></div><div id="fxVigB" class="fx vig"></div>
     <canvas id="ui" aria-hidden="true"></canvas>
     <div id="tutCard" class="tut" hidden aria-live="polite">
-      <div class="thead"><span class="tlabel">チュートリアル</span><span id="tutStep" class="tstep"></span></div>
+      <div class="thead"><span class="tlabel">チュートリアル</span><span id="tutOk" class="tok" hidden>できた！</span><span id="tutStep" class="tstep"></span></div>
       <p id="tutText" class="ttext"></p>
+      <button id="tutNext" type="button" class="tnext" hidden>次へ ▶</button>
       <div class="trow">
         <button id="tutSkip" type="button" class="tskip">スキップ</button>
         <button id="tutNever" type="button" class="tskip">今後表示しない</button>
@@ -2760,6 +2768,7 @@ addEventListener('keydown', e => {
   if (e.repeat) return;
   keys[keyName(e)] = true;
   if ((e.key === 'x' || e.key === 'X' || e.key === 'Shift') && G.mode === 'play') useDrink();
+  if (e.key === 'Enter' && G.tut && G.tut.wait && G.mode === 'play') { e.preventDefault(); nextTutStep(); return; }
   if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && (G.mode === 'play' || G.mode === 'paused')) togglePause();
   if (e.key === ' ' || e.key === 'z' || e.key === 'Z') {
     // 押した瞬間は待ち、0.18秒以上押し続けたら狙い撃ちの構えに入る
@@ -3011,26 +3020,36 @@ function addScore(n) { G.score += Math.round(n * modeMult()); G.scorePop = 0.25;
 const fmt = n => Math.floor(n).toLocaleString('en-US');
 function tutDone() { return Store.get('tut', 0) == 1; }
 const TOUCH = matchMedia('(pointer: coarse)').matches;
+// 各項目は、できたら「できた！」を出して止まり、「次へ」かしばらく待つと進む（読む前に次へ飛ばないように）
+// info：操作なしで読むだけの項目。hl：枠で示す場所
 const TUT = [
   { text: () => TOUCH ? '画面をスワイプして<b>移動</b>' : '<b>←→↑↓</b>（ドラッグでも可）で<b>移動</b>', done: T => Math.hypot(P.x - T.x0, P.y - T.y0) > 70, limit: 10 },
-  { text: () => TOUCH ? '右下の<b>「撃つ」</b>で発射。<br>押しっぱなしで連射' : '<b>Space</b>を軽く押して<b>発射</b>', done: T => G.stats.shots > T.shots0, limit: 12 },
-  { text: () => TOUCH ? '<b>お腹を下に引っ張って離す</b>と狙い撃ち。<br>点線の先へ飛び、壁で跳ね返る' : '<b>Spaceを長押し</b>→<b>←→で狙って離す</b>と狙い撃ち。<br>点線の先へ飛び、壁で跳ね返る', done: () => (G.stats.aimed || 0) > 0, limit: 14 },
-  { text: () => '撃つほど<b>痩せて判定が小さく</b>なるが、<br>右上の<b>スコア倍率</b>も下がる。<b>食べて</b>戻そう', setup: () => addEnt({ type: 'item', kind: 'onigiri', x: clamp(P.x + 60, WL + 60, WR - 60), y: 120, r: 13 }), done: T => G.stats.items > T.items0, limit: 10 },
+  { text: () => TOUCH ? '右下の<b>「撃つ」</b>でお腹の<b>脂肪</b>を発射。<br>押しっぱなしで連射' : '<b>Space</b>を軽く押して<br>お腹の<b>脂肪</b>を発射', hl: 'fire', done: T => G.stats.shots > T.shots0, limit: 12 },
+  { text: () => '<span class="tkey">ここがキモ！</span><br>撃つほど痩せて、<b>赤い点線の当たり判定</b>が<b>小さく</b>なる。<br>細いほど弾をすり抜けやすい', hl: 'hitbox', info: true },
+  { text: () => 'ただし下の<b>脂肪の弾</b>が<b>尽きる</b>と<br><b class="tdead">燃え尽きて死亡</b>。<br>右上の<b>スコア倍率</b>も痩せるほど下がる', hl: 'fat', info: true },
+  { text: () => '尽きても<b>2秒だけ猶予</b>がある。<br>そのあいだに<b>食べ物</b>を取れば<b>復活</b>！<br>おにぎりを取って脂肪を戻そう', setup: () => addEnt({ type: 'item', kind: 'onigiri', x: clamp(P.x + 60, WL + 60, WR - 60), y: 120, r: 13 }), done: T => G.stats.items > T.items0, limit: 12 },
+  { text: () => (TOUCH ? '<b>お腹を下に引っ張って離す</b>と狙い撃ち。' : '<b>Spaceを長押し</b>→<b>←→で狙って離す</b>と狙い撃ち。') + '<br>跳ね返った脂肪は<b>お腹で受けると再吸収</b>', hl: 'belly', done: () => (G.stats.aimed || 0) > 0, limit: 14 },
   { text: () => '<b>赤く光る</b>のは障害物。<br>避けるか、撃って壊そう', setup: () => { G.tutPile = addEnt({ type: 'pile', x: clamp(P.x + (P.x < W / 2 ? 120 : -120), WL + 60, WR - 60), /* 動かなくても当たらない位置 */ y: -50, w: 70, h: 56, hp: 1, solid: true, harm: true, shape: 'rect', seed: 2 }); }, done: () => !G.tutPile || G.tutPile.dead || G.tutPile.y > P.y + 90, limit: 9 },
-  { text: () => 'その調子！ <b>出口</b>まで走り抜けろ', done: T => T.t > 1.8 },
+  { text: () => 'その調子！ <b>出口</b>まで走り抜けろ', done: T => T.t > 1.8, last: true },
 ];
+const TUT_WAIT = { done: 4, info: 9 }; // 「次へ」を押さなくても進むまでの秒数
 function startTut() {
   G.tut = { step: -1, t: 0 }; G.banner = null; nextTutStep(); // ステージ名の帯は説明と重なるので出さない
   $('tutCard').hidden = false;
 }
 function nextTutStep() {
-  const T = G.tut; T.step++; T.t = 0; T.x0 = P.x; T.y0 = P.y; T.shots0 = G.stats.shots; T.items0 = G.stats.items;
+  const T = G.tut; if (!T) return;
+  T.step++; T.t = 0; T.wait = 0; T.x0 = P.x; T.y0 = P.y; T.shots0 = G.stats.shots; T.items0 = G.stats.items;
   if (T.step >= TUT.length) { endTut(true); return; }
   const st = TUT[T.step]; if (st.setup) st.setup();
   $('tutText').innerHTML = st.text(); $('tutStep').textContent = (T.step + 1) + ' / ' + TUT.length;
+  $('tutOk').hidden = true;
+  if (st.info) tutWait(T, TUT_WAIT.info); else $('tutNext').hidden = true;
   $('tutCard').classList.remove('pop'); void $('tutCard').offsetWidth; $('tutCard').classList.add('pop');
   if (T.step > 0) sfx('pick');
 }
+// 「次へ」を出して待つ。max 秒たったら自動で進む
+function tutWait(T, max) { T.wait = max; T.waitT = 0; $('tutNext').hidden = false; $('tutNext').style.setProperty('--k', 1); }
 // finished：最後まで見た。never：今後表示しない
 function endTut(finished, never) {
   if (finished || never) Store.set('tut', 1);
@@ -3040,17 +3059,28 @@ function updateTut(dt) {
   const T = G.tut; if (!T) return;
   T.t += dt;
   const st = TUT[T.step];
-  if (st.done(T) || (st.limit && T.t > st.limit)) nextTutStep();
+  if (T.wait) {
+    T.waitT += dt; $('tutNext').style.setProperty('--k', Math.max(0, 1 - T.waitT / T.wait));
+    if (T.waitT >= T.wait) nextTutStep();
+  } else if (st.done(T)) {
+    if (st.last) nextTutStep();
+    else { $('tutOk').hidden = false; sfx('kit'); tutWait(T, TUT_WAIT.done); }
+  } else if (st.limit && T.t > st.limit) tutWait(T, TUT_WAIT.done); // できなくても先へ進める
   if (G.tut) G.spawnT = Math.max(G.spawnT, 0.6); // 説明中は他の障害物を出さない
 }
 function drawTut(c) {
   const T = G.tut; if (!T || G.mode !== 'play') return;
-  const pulse = Math.sin(G.t * 8) * 4;
+  const hl = TUT[T.step] && TUT[T.step].hl, pulse = Math.sin(G.t * 8) * 4;
   c.save(); c.strokeStyle = COL.memo; c.lineWidth = 3;
-  if (T.step === 1) { const fb = FIRE_BTN; circ(c, fb.x, fb.y, fb.r + 8 + pulse); c.stroke(); }
-  if (T.step === 2) { // お腹を示す
+  if (hl === 'fire') { const fb = FIRE_BTN; circ(c, fb.x, fb.y, fb.r + 8 + pulse); c.stroke(); }
+  if (hl === 'hitbox' || hl === 'belly') { // お腹（当たり判定）を示す
     const hb = hitbox(); c.setLineDash([6, 5]); ell(c, hb.x, hb.y, hb.rx + 10 + pulse, hb.ry + 10 + pulse); c.stroke(); c.setLineDash([]);
-    if (T.step === 2) { const y = hb.y + hb.ry + 24 + Math.abs(pulse) * 3; c.fillStyle = COL.memo; c.beginPath(); c.moveTo(hb.x - 12, y); c.lineTo(hb.x + 12, y); c.lineTo(hb.x, y + 14); c.closePath(); c.fill(); }
+    const y = hb.y + hb.ry + 24 + Math.abs(pulse) * 3; c.fillStyle = COL.memo; c.beginPath(); c.moveTo(hb.x - 12, y); c.lineTo(hb.x + 12, y); c.lineTo(hb.x, y + 14); c.closePath(); c.fill();
+    if (hl === 'hitbox') { const rt = hb.x < W / 2 + 40; /* 右に入らなければ左に出す */ txt(c, rt ? '← 当たり判定' : '当たり判定 →', hb.x + (rt ? 1 : -1) * (hb.rx + 18), hb.y, F.zk(13), COL.memo, rt ? 'left' : 'right', COL.ink, 4); }
+  }
+  if (hl === 'fat') { // 下の体脂肪パネルと右上の倍率
+    rr(c, 4 - pulse / 2, H - 62 - pulse / 2, 278 + pulse, 58 + pulse, 14); c.stroke();
+    rr(c, W - 96 - pulse / 2, 46 - pulse / 2, 84 + pulse, 20 + pulse, 6); c.stroke();
   }
   c.restore();
 }
@@ -4117,6 +4147,7 @@ const pauseBtn = $('pauseBtn'), retryBtn = $('retryBtn'), nextBtn = $('nextBtn')
 $('startBtn').addEventListener('click', () => { auInit(); newGame(false); });
 $('mHow').addEventListener('click', showHow);
 $('tutSkip').addEventListener('click', () => endTut(false));
+$('tutNext').addEventListener('click', () => { $('tutNext').blur(); if (G.tut && G.tut.wait) nextTutStep(); }); // フォーカスを残すと Space で押されてしまう
 $('tutNever').addEventListener('click', () => { endTut(false, true); toast('チュートリアルは設定からまた表示できます'); });
 $('mDaily').addEventListener('click', showDaily);
 $('mBoss').addEventListener('click', showBossMode);
