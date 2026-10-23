@@ -186,6 +186,11 @@ body{
 .big{margin:0;font-family:var(--f-display);font-weight:400;font-size:11cqw;line-height:1.05;color:var(--paper);text-shadow:.8cqw .8cqw 0 var(--exit);text-wrap:balance}
 .big.red{text-shadow:.8cqw .8cqw 0 var(--hanko)}
 .clock{font-family:var(--f-pixel);font-size:8cqw;color:var(--memo);margin:0;font-variant-numeric:tabular-nums}
+.tcard{background:var(--paper);color:var(--ink);font-family:var(--f-pixel);padding:2cqw 4.5cqw 2.4cqw;border-radius:.8cqw;transform:rotate(-1.5deg);box-shadow:.8cqw .8cqw 0 rgba(0,0,0,.35);min-width:56cqw;font-variant-numeric:tabular-nums}
+.tcard .tc-h{font-size:3.2cqw;letter-spacing:.4em;color:var(--hanko-deep);border-bottom:.4cqw solid var(--hanko);padding-bottom:1cqw;margin-bottom:1.4cqw}
+.tcard dl{display:grid;grid-template-columns:auto auto;align-items:baseline;gap:.4cqw 5cqw;margin:0;font-size:3.4cqw}
+.tcard dt{text-align:left;color:#5d6660}.tcard dd{margin:0;text-align:right;font-size:5.6cqw}
+.tcard dd.ok{color:#1f7a43}.tcard dd.late{color:var(--hanko)}
 .pause{position:absolute;right:2.6cqw;bottom:2.4cqw;width:10cqw;height:10cqw;border-radius:50%;border:.4cqw solid rgba(255,255,255,.35);background:rgba(16,20,23,.55);color:var(--paper);font-family:var(--f-pixel);font-size:3.6cqw;cursor:pointer}
 @media (prefers-reduced-motion: reduce){.logo .b,.ura,.toast.show,.tut.pop{animation:none}}
 .modes{display:flex;gap:2cqw;justify-content:center;flex-wrap:wrap}
@@ -350,7 +355,7 @@ body{
     <section id="ovEnd" class="ov full" hidden>
       <div id="endKicker" class="kicker">ALL CLEAR</div>
       <p id="endBig" class="big">無事<br>帰宅。</p>
-      <p class="clock" id="endClock">18:00</p>
+      <div class="tcard" id="endClock"></div>
       <p id="endMsg" class="verdict"></p>
       <dl id="endStats" class="stats"></dl>
       <div class="row">
@@ -413,7 +418,7 @@ body{
           <li>太っているほど<wbr>スコアが伸びる。<wbr>食べて回復：<wbr>おにぎり／<wbr>からあげは<wbr>貫通弾／<wbr>マシマシラーメンは<wbr>全回復。</li>
           <li><b>栄養ドリンク</b>は<wbr>1本まで<wbr>持てる。<wbr>右下の<wbr><b>「無敵」</b>で<wbr>好きなときに<wbr>6秒間無敵。<wbr>障害物に<wbr>体当たりで<wbr>粉砕。<wbr>ボスへの<wbr>体当たりは<wbr>1本で2回まで。</li>
           <li>壊した物で<wbr>点が違う<wbr>（部長500・<wbr>車400・<wbr>上司200 など）。<wbr>無敵中の<wbr>体当たりは<wbr>2倍で、<wbr>続けて壊すほど<wbr>最大×3。</li>
-          <li>ボスは<wbr>体力が減ると<wbr><b>業務命令</b>を<wbr>発令。<wbr>ドリンクを<wbr>使わずに<wbr>顔面に当てて<wbr><b>却下</b>すれば<wbr>大ボーナス。</li>
+          <li>ボスは<wbr>体力が減ると<wbr><b>業務命令</b>を<wbr>発令。<wbr>ドリンクを<wbr>使わずに<wbr>顔面に当てて<wbr><b>却下</b>すれば<wbr>却下手当（大量点）。</li>
           <li><b>エンドレス残業</b>は<wbr>3つのフロアを<wbr>ぐるぐる周回。<wbr>周るほど<wbr>敵が増えて、<wbr>点も伸びる。</li>
         </ol>
         <p class="pc">PC：<wbr>←→↑↓で移動／<wbr>Spaceで発射／<wbr>Space長押し→<wbr>←→で狙って離すと<wbr>狙い撃ち／<wbr>Xでドリンク／<wbr>Pで一時停止</p>
@@ -525,7 +530,9 @@ const ORDER_HITS = 3;
 // 残機（その場で立て直せる回数）。プレイ開始時の数。2面の中ボスが1回だけエクステンド（1UP）を落とす
 const LIVES = 2, LIVES_MAX = 4;
 const ORDER_CUT = 1.9;  // 宣言の演出の長さ（この間は弾を撃たない）
-const ORDER_DUR = 22;   // 制限時間
+const ORDER_DUR = 22;   // 制限時間（決裁期限）
+const CAKE_MIN = 20 * 60; // 娘の誕生日ケーキの時刻（0時からの分）。エンディングの娘のセリフとタイムカードの境目
+const KYAKKA_DUR = 2.2; // 却下の判子と手当を上の表示に残す長さ（顔の判子は1秒で消える）
 const POP = [3, 4, 2, 5, 1, 0];     // 脂肪を消費する順番
 const SLOT_BASE = [-32, -21, -10, 1, 12, 22];
 // 主人公。名前を出す所（タイトル・遊び方・帰宅画面・結果コピー）はここを使う
@@ -3154,7 +3161,7 @@ function bossAttack(b) {
   }
   b.atk++;
   b.cast = 0.7; b.atkT = 999;
-  const open = (d, len) => later(d, () => { if (G.boss === b && b.state === 'fight') { b.openT = (len || 2.4) * D().open; text('スキあり！', b.x, b.y + b.def.faceY - 60, 16, COL.memo); } }, true);
+  const open = (d, len) => later(d, () => { if (G.boss === b && b.state === 'fight') { b.openT = (len || 2.4) * D().open; text('好機！', b.x, b.y + b.def.faceY - 60, 16, COL.memo); } }, true);
   const faceX = () => b.x, faceY = () => b.y + 20;
   const s2 = G.stage, sk = b.kind === 'senmu' ? { skin: 'mug' } : { word: '決裁' };
   if (name === 'stamp3') {
@@ -3237,14 +3244,14 @@ function bossUpdate(dt) {
       b.state = 'fight';
       // 2面のクライアント（通常・1周目）は最初だけ顔を開けて待つ：跳ね返しの練習。最初の1発が当たるか8秒で終わる
       tipTrigger('boss');
-      if (b.kind === 'client' && !G.ura && !G.loop) { b.lesson = true; b.openT = 8; text('今だけ攻撃してこない！', W / 2, b.y + 120, 18, COL.memo, { life: 2.6, max: 2.6 }); }
+      if (b.kind === 'client' && !G.ura && !G.loop) { b.lesson = true; b.openT = 8; text('今は無防備！', W / 2, b.y + 120, 18, COL.memo, { life: 2.6, max: 2.6 }); }
     }
   } else if (b.state === 'fight') {
     if (b.dash) {
       const d = b.dash; d.t += dt;
       if (d.phase === 'tele') { b.x += (d.tx - b.x) * Math.min(1, dt * 6); if (d.t > 0.9) { d.phase = 'down'; sfx('dash'); } }
       else if (d.phase === 'down') { b.y += 640 * dt; if (Math.random() < 0.6) dust(b.x + rnd(-20, 20), b.y + 60); if (b.y > H - 130) { d.phase = 'up'; G.shake = 8; } }
-      else { b.y -= 300 * dt; if (b.y <= b.ty) { b.y = b.ty; b.dash = null; b.openT = 2.6 * D().open; text('スキあり！', b.x, b.y + b.def.faceY - 60, 16, COL.memo); } }
+      else { b.y -= 300 * dt; if (b.y <= b.ty) { b.y = b.ty; b.dash = null; b.openT = 2.6 * D().open; text('好機！', b.x, b.y + b.def.faceY - 60, 16, COL.memo); } }
     } else if (b.order) orderUpdate(b, dt);
     else if (b.gulp) gulpUpdate(b, dt);
     else if (b.lesson) b.x += (W / 2 - b.x) * Math.min(1, dt * 3); // 練習中は真ん中で止まる
@@ -3261,7 +3268,7 @@ function bossUpdate(dt) {
   } else if (b.state === 'ko') {
     b.ko += dt; b.y -= (120 + b.ko * 420) * dt; b.rot += dt * 9; b.x += Math.sin(b.ko * 6) * 2;
     if (Math.random() < 0.5) G.parts.push({ type: 'paper', x: b.x + rnd(-40, 40), y: b.y + rnd(-40, 40), vx: rnd(-200, 200), vy: rnd(-200, 100), life: 1.2, max: 1.2, rot: rnd(0, TAU), vr: rnd(-10, 10), size: rnd(5, 9) });
-    if (b.ko > 2.0 && !G.door) { G.door = { y: -120 }; G.exiting = true; text('出口が見えた！', W / 2, 320, 22, COL.memo); sfx('gogo'); }
+    if (b.ko > 2.0 && !G.door) { G.door = { y: -120 }; G.exiting = true; text('出口間近！', W / 2, 320, 22, COL.memo); sfx('gogo'); }
   }
   G.itemT -= dt;
   if (b.state === 'fight' && G.itemT <= 0) { spawnItem(true); G.itemT = rnd(5.5, 7.5) * D().item; }
@@ -3276,13 +3283,13 @@ function gulpUpdate(b, dt) {
   if (g.t < g.dur) return;
   b.gulp = null; b.atkT = 0.7 * D().gap; // 飲み干した：体力が戻る
   const heal = Math.min(1, b.maxHp - b.hp); b.hp += heal;
-  text((g.z ? 'ゴクゴク…みなぎるぞ！' : 'プハーッ！おかわり！') + (heal ? `（体力+${heal}）` : ''), b.x, b.y + 80, 17, '#ffe27a'); sfx('boyon');
+  text((g.z ? 'Z注入！' : 'おかわり！') + (heal ? `回復+${heal}` : ''), b.x, b.y + 80, 17, '#ffe27a'); sfx('boyon');
 }
 // 一気飲み中のジョッキに当たった：むせて長いスキ
 function gulpChoke(b) {
   b.gulp = null; b.openT = 3.4 * D().open; b.hurt = 0.4;
   const m = gulpMug(b); sparks(m.x, m.y, 14, '#ffe27a'); ring(m.x, m.y, 70, '#ffe27a', 6); burst(m.x, m.y, 10, '#fff6c8');
-  text('ブホッ！むせた！', b.x, b.y + 80, 20, '#fff'); text('大きなスキ！', b.x, b.y + 104, 16, COL.memo);
+  text('むせた！好機！', b.x, b.y + 80, 20, '#fff'); text('大きなスキ！', b.x, b.y + 104, 16, COL.memo);
   addScore(3000); G.shake = 12; G.hitstop = 0.06; sfx('bosshit'); Haptic.tap('medium');
 }
 function bossKO() {
@@ -3312,9 +3319,11 @@ function orderBonus(s) { return Math.round(lerp(20000, 5000, clamp(s.t / ORDER_D
 function endOrder(b, broke) {
   const s = b.order; b.order = null; b.atkT = 1.6;
   for (const e of G.ents) if (e.shot) { e.dead = true; sparks(e.x, e.y, 2, '#ffe27a'); }
-  if (broke && !s.drinkUsed) { b.broke = (b.broke || 0) + 1; const v = orderBonus(s); addScore(v); unlock('order'); text('命令却下!!', W / 2, 250, 28, COL.hanko, { font: F.dg(28), life: 2, max: 2, vy: -12 }); text('却下ボーナス +' + fmt(v * modeMult()), W / 2, 284, 18, '#fff', { font: F.dg(18), life: 2, max: 2, vy: -12 }); sfx('clear'); }
-  else if (broke) text('却下（ドリンク使用でボーナスなし）', W / 2, 260, 15, '#fff', { life: 1.8, max: 1.8 });
-  else { text('時間切れ…命令に従いました', W / 2, 260, 17, '#cfd6d2', { life: 1.8, max: 1.8 }); b.y = b.ty; }
+  if (broke) { // 稟議書に「却下」の判子を押し、手当を明細で出す（ドリンクを使ったら手当なし）
+    let v = 0;
+    if (!s.drinkUsed) { b.broke = (b.broke || 0) + 1; v = orderBonus(s); addScore(v); unlock('order'); sfx('clear'); }
+    G.kyakka = { t: 0, name: s.name, pay: v * modeMult(), x: b.x, y: b.y + b.def.faceY * (b.def.scale || 1) };
+  } else { text('期限切れ…', W / 2, 260, 17, '#cfd6d2', { life: 1.8, max: 1.8 }); b.y = b.ty; }
 }
 // 毎フレーム：時間・ボーナス・顔が開く周期・各業務命令の弾
 function orderUpdate(b, dt) {
@@ -3503,7 +3512,7 @@ function drawParts(c) {
 function drawTexts(c) {
   for (const t of G.texts) {
     const age = t.max - t.life, k = clamp(t.life / t.max, 0, 1);
-    const pop = age < 0.12 ? lerp(0.4, 1.25, age / 0.12) : age < 0.22 ? lerp(1.25, 1, (age - 0.12) / 0.1) : 1;
+    const pop = t.still ? 1 : age < 0.12 ? lerp(0.4, 1.25, age / 0.12) : age < 0.22 ? lerp(1.25, 1, (age - 0.12) / 0.1) : 1;
     c.save(); c.translate(t.x, t.y); c.scale(pop, pop); c.rotate(t.rot || 0); c.globalAlpha = Math.min(1, k * 3);
     txt(c, t.s, 0, 0, t.font || F.dg(t.size), t.color, 'center', COL.ink, t.size > 18 ? 6 : 4);
     c.restore();
@@ -3532,7 +3541,7 @@ function fire(dir, power) {
   const left = ammo();
   if (left === 0) { // 弾切れ：猶予のあいだに食べ物か再吸収で脂肪が戻れば助かる
     const t = G.ura ? 1.5 : 2; G.pending = { t, max: t, type: 'starve' };
-    text('急いで食べ物を取れ！', W / 2, P.y - 200, 20, COL.memo, { life: 1.8, max: 1.8 });
+    text('食べろ！', W / 2, P.y - 200, 20, COL.memo, { life: 1.8, max: 1.8 });
   } else if (left === 1) banner('ラスト脂肪', '撃ったらすぐ食べないと燃え尽きる', COL.hanko);
 }
 function updateBullets(dt) {
@@ -3547,7 +3556,7 @@ function updateBullets(dt) {
       const hb = hitbox();
       if (Math.hypot(b.x - hb.x, b.y - hb.y) < 54) {
         const i = POP.find(j => !P.slot[j]);
-        if (i !== undefined) { P.slot[i] = b.kind; P.openV[i] -= 6; b.dead = true; G.stats.catches++; text('脂肪を再吸収！', hb.x, hb.y - 60, 16, COL.memo); unlock('catch'); sfx('snap'); sparks(hb.x, hb.y, 8); }
+        if (i !== undefined) { P.slot[i] = b.kind; P.openV[i] -= 6; b.dead = true; G.stats.catches++; text('再吸収！', hb.x, hb.y - 60, 16, COL.memo); unlock('catch'); sfx('snap'); sparks(hb.x, hb.y, 8); }
       }
     }
   }
@@ -3716,12 +3725,12 @@ function updatePlayer(dt, rdt) {
   if (jt === 0 && P.jacket > 0.05 && !P.noShirt) {
     P.jacketLost = true; P.jacket = 0;
     G.parts.push({ type: 'shirt', col: SUIT().sleeve, edge: SUIT().edge, x: P.x, y: P.y - 40, vx: rnd(-90, 90), vy: -440, life: 2, max: 2, rot: 0, vr: rnd(-7, 7), s: 1.6, plain: true });
-    text('上着を脱ぎ捨てた！', P.x, P.y - 150, 12, '#fff', { font: F.zk(12) });
+    text('脱ぎ捨て！', P.x, P.y - 150, 12, '#fff', { font: F.zk(12) });
   } else P.jacket += (jt - P.jacket) * Math.min(1, dt * 7);
   const a = ammo();
   P.fatV += ((a / 6 - P.fat) * 90 - P.fatV * 7) * dt; P.fat = clamp(P.fat + P.fatV * dt, 0, 1.12);
   P.hbFlash = Math.max(0, P.hbFlash - dt);
-  if (P.inv > 0) { P.inv -= dt; if (P.inv <= 0) { P.inv = 0; if (G.invSmash) text(`無敵終了　${G.invSmash}個粉砕　+${fmt(G.invPts || 0)}`, W / 2, 200, 18, '#ffe27a', { life: 1.8, max: 1.8, vy: -10 }); G.invSmash = 0; G.invPts = 0; G.combo = 0; } }
+  if (P.inv > 0) { P.inv -= dt; if (P.inv <= 0) { P.inv = 0; if (G.invSmash) text(`粉砕${G.invSmash}個 +${fmt(G.invPts || 0)}`, W / 2, 200, 18, '#ffe27a', { life: 1.8, max: 1.8, vy: -10 }); G.invSmash = 0; G.invPts = 0; G.combo = 0; } }
   const wt = a >= 6 ? 0 : a === 1 ? 1 : a === 0 ? 1.2 : (6 - a) * 0.1;
   P.wind += (wt - P.wind) * Math.min(1, dt * 3);
   P.flail = Math.max(0, P.flail - dt);
@@ -3791,7 +3800,7 @@ function updateEnts(dt, spd) {
 function useDrink() {
   if (!canAct() || !G.drinkStock || P.inv > 0) return false;
   if (G.boss && G.boss.order) G.boss.order.drinkUsed = true;
-  G.drinkStock = 0; P.inv = 6; G.invSmash = 0; G.invPts = 0; G.combo = 0; G.bossSlams = 0; text('無敵！ファイトォ！', P.x, P.y - 122, 18, '#ffe27a');
+  G.drinkStock = 0; P.inv = 6; G.invSmash = 0; G.invPts = 0; G.combo = 0; G.bossSlams = 0; text('無敵！', P.x, P.y - 122, 18, '#ffe27a');
   for (let k = 0; k < 12; k++) G.parts.push({ type: 'star', x: P.x + rnd(-50, 50), y: P.y + rnd(-70, 30), vx: rnd(-40, 40), vy: rnd(-90, -20), life: 0.9, max: 0.9, size: rnd(3, 6), col: '#ffe27a' });
   sfx('kit'); G.flash = 0.3; G.flashCol = '#ffe27a'; Haptic.tap('medium');
   return true;
@@ -3812,10 +3821,10 @@ function bulletProg(e, dt) {
 function pickup(e) {
   G.stats.items++; addScore(50); Haptic.tap('light');
   if (e.kind === 'oneup') { // エクステンド：残機+1
-    G.lives = Math.min(LIVES_MAX, (G.lives || 0) + 1); text('1UP！ 残機+1', P.x, P.y - 122, 20, '#9dffbf'); sfx('kit'); G.flash = 0.3; G.flashCol = '#d9ffe6'; ring(P.x, P.y, 120, '#9dffbf', 6); return;
+    G.lives = Math.min(LIVES_MAX, (G.lives || 0) + 1); text('1UP！', P.x, P.y - 122, 20, '#9dffbf'); sfx('kit'); G.flash = 0.3; G.flashCol = '#d9ffe6'; ring(P.x, P.y, 120, '#9dffbf', 6); return;
   }
   if (e.kind === 'drink') { // 持てるのは1本まで。好きなときに使う
-    if (G.drinkStock) { addScore(300); text('ドリンクは1本まで（+300点）', P.x, P.y - 122, 14, '#ffe27a'); sfx('pick'); return; }
+    if (G.drinkStock) { addScore(300); text('満杯 +300', P.x, P.y - 122, 14, '#ffe27a'); sfx('pick'); return; }
     G.drinkStock = 1; text('ドリンク確保！', P.x, P.y - 122, 18, '#ffe27a'); sfx('kit');
     if (!G.drinkHint) { G.drinkHint = true; banner('ドリンク確保', TOUCH ? '右下の「無敵」で好きなときに使える' : 'Xキーで好きなときに使える', '#ffe27a'); }
     return;
@@ -3824,15 +3833,15 @@ function pickup(e) {
     const gain = 6 - ammo(); for (let i = 0; i < 6; i++) if (!P.slot[i]) P.slot[i] = 'fat';
     if (gain) { text('+' + gain * 8 + 'kg', P.x + 74, P.y - 10, 22, '#ffb37a', { font: F.dg(22) }); P.fatV += 2; P.hbFlash = 1.0; }
     P.b.vsx += 9; P.b.vsy += 5;
-    text('ニンニクマシマシ！脂肪全回復!!', P.x, P.y - 122, 17, '#ffb3c9'); unlock('ramen');
+    text('全回復!!', P.x, P.y - 122, 17, '#ffb3c9'); unlock('ramen');
     for (let k = 0; k < 14; k++) G.parts.push({ type: 'star', x: P.x + rnd(-40, 40), y: P.y + rnd(-60, 30), vx: rnd(-40, 40), vy: rnd(-90, -20), life: 0.9, max: 0.9, size: rnd(3, 6), col: '#ffd1de' });
     sfx('kit'); G.flash = 0.35; G.flashCol = '#ffc4d6';
   } else {
     const i = POP.find(j => !P.slot[j]);
-    if (i === undefined) { text('もう食べられない…', P.x, P.y - 122, 13, '#fff', { font: F.zk(13) }); sfx('pick'); return; }
+    if (i === undefined) { text('満腹…', P.x, P.y - 122, 13, '#fff', { font: F.zk(13) }); sfx('pick'); return; }
     P.slot[i] = e.kind === 'karaage' ? 'karaage' : 'fat'; P.b.vsx += 5; P.b.vsy += 3; P.fatV += 1.2; P.hbFlash = 1.0;
     multCue(true); ring(P.x, P.y, 110, 'rgba(255,179,122,.9)', 5);
-    text(e.kind === 'onigiri' ? 'もぐもぐ 脂肪+1' : 'からあげ！揚げ脂肪+1', P.x, P.y - 122, 15, COL.memo, { font: F.zk(15) });
+    text('脂肪+1', P.x, P.y - 122, 15, COL.memo, { font: F.zk(15) });
     const B = BG(); sparks(P.x + B.cx * K, P.y + B.cy * K, 10, '#fff2a8');
     sfx('snap'); setTimeout(() => sfx('pick'), 60);
   }
@@ -3961,7 +3970,7 @@ function drawTut(c) {
     if (hl === 'hitbox') { const rt = hb.x < W / 2 + 40; /* 右に入らなければ左に出す */ txt(c, rt ? '← 当たり判定' : '当たり判定 →', hb.x + (rt ? 1 : -1) * (hb.rx + 18), hb.y, F.zk(13), COL.memo, rt ? 'left' : 'right', COL.ink, 4); }
   }
   if (hl === 'fat') { // 下の体脂肪パネルと右上の倍率
-    rr(c, 4 - pulse / 2, H - 62 - pulse / 2, 278 + pulse, 58 + pulse, 14); c.stroke();
+    rr(c, 4 - pulse / 2, H - 58 - pulse / 2, 252 + pulse, 54 + pulse, 14); c.stroke();
     rr(c, W - 96 - pulse / 2, 46 - pulse / 2, 84 + pulse, 20 + pulse, 6); c.stroke();
   }
   c.restore();
@@ -4011,7 +4020,7 @@ function collisions() {
         b.hit.add('boss');
         if (bo.guard <= 0.5 && bo.kind === 'client' && b.bounces === 0) {
           b.vy = Math.abs(b.vy) * 0.75; b.vx += rnd(-120, 120);
-          text('壁で跳ね返して当てろ！', fx, fy - 40, 14, COL.memo); sfx('boyon'); sparks(b.x, b.y, 6);
+          text('壁で反射して狙え！', fx, fy - 40, 14, COL.memo); sfx('boyon'); sparks(b.x, b.y, 6);
         } else if (bo.guard > 0.5) {
           b.vy = Math.abs(b.vy) * 0.75; b.vx += rnd(-120, 120);
           text({ shacho: '資料ガード!', client: '通話中ガード!', senmu: 'ジョッキガード!', yakushiji: 'カルテガード!', kyoshacho: '経営計画ガード!' }[bo.kind], fx, fy - 40, 14, '#fff'); sfx('boyon'); sparks(b.x, b.y, 6);
@@ -4019,7 +4028,7 @@ function collisions() {
           bo.hp -= b.dmg; bo.hurt = 0.5; bo.openT = Math.max(0, bo.openT - 0.5);
           if (bo.lesson) { bo.lesson = false; bo.openT = Math.min(bo.openT, 1.2); text('その調子！', W / 2, bo.y + 120, 18, COL.memo); }
           G.hitstop = 0.04; G.shake = 14; G.flash = 0.25; G.flashCol = '#fff';
-          text('顔面クリーンヒット!!', fx, fy - 46, 18, COL.memo); addScore(1000); Haptic.tap('medium'); countUp('face', 10, 'face10'); sparks(fx, fy, 18, '#ffe27a'); ring(fx, fy, 70, '#ffe27a', 6); sfx('bosshit');
+          text('顔面直撃!!', fx, fy - 46, 18, COL.memo); addScore(1000); Haptic.tap('medium'); countUp('face', 10, 'face10'); sparks(fx, fy, 18, '#ffe27a'); ring(fx, fy, 70, '#ffe27a', 6); sfx('bosshit');
           b.vy = Math.abs(b.vy) * 0.55; b.vx *= 0.6;
           if (Math.random() < 0.45) addEnt({ type: 'item', kind: Math.random() < 0.6 ? 'karaage' : 'onigiri', x: fx, y: fy + 40, r: 13 });
           if (bo.hp <= 0) bossKO();
@@ -4050,7 +4059,7 @@ function collisions() {
         if ((G.bossSlams || 0) < 2) {
           G.bossSlams = (G.bossSlams || 0) + 1; bo.hp -= 2; bo.hurt = 0.5; smashFx(bo.x, bo.y + 10, ['#1f2a44', '#f4f2ea', '#d9a521'], '体当たり!!', 500);
           if (bo.hp <= 0) { bossKO(); return; }
-        } else { text('もう効かない！', bo.x, bo.y - 60, 16, '#fff'); sfx('graze'); }
+        } else { text('無効！', bo.x, bo.y - 60, 16, '#fff'); sfx('graze'); }
         P.y = clamp(P.y + 60, YMIN, YMAX); P.ty = clamp(P.y + 110, YMIN, YMAX); P.vy = 380; G.shake = Math.max(G.shake, 8);
       }
     } else if (!bo.dash) { die('caught', bo.kind, { x: bo.x, y: bo.y, r: 70 }); return; }
@@ -4175,7 +4184,8 @@ function stageClear() {
     const showEnd = () => {
       const story = !G.daily && storyOn(); // 通常モードはエンディングの紙芝居のあとに出る
       $('endKicker').textContent = 'ALL CLEAR'; $('endBig').innerHTML = '無事<br>帰宅。';
-      endClock.textContent = G.daily ? '今日のお題 クリア' : '帰宅 ' + clockStr();
+      endClock.className = G.daily ? 'clock' : 'tcard'; // お題はひとことだけ。ほかはタイムカード
+      if (G.daily) endClock.textContent = '今日のお題 クリア'; else endClock.innerHTML = timecardHTML();
       endMsg.innerHTML = (story ? '<span class="say"><b>娘</b>「パパおかえり！」</span>' : '') + HERO.family + '係長、' + (ammo() === 6 ? '体脂肪は<em>満タン</em>のまま帰宅。<br>今夜もビールがうまい。' : `体脂肪は残り<em>${ammo()}/6</em>。<br>ちょっと痩せた気がします。`);
       endStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd><dt>粉砕した障害</dt><dd>${G.stats.crushed}件</dd><dt>食べた物</dt><dd>${G.stats.items}個</dd>`;
       resetShare(); setAdButtons(); ovEnd.hidden = false; againBtn.focus({ preventScroll: true });
@@ -4185,7 +4195,7 @@ function stageClear() {
     setTimeout(() => {
       clearKicker.textContent = looped ? `残業 ${G.loop}周目 終了` : st.name + ' CLEAR';
       clearMsg.innerHTML = looped ? `帰ろうとしたら<em>また1面から</em>。<br>${G.loop + 1}周目は敵が増えて、点も伸びます。` : `${BOSSES[st.boss].name}を<em>物理的に黙らせました</em>。<br>次は${STAGES[nextStageIdx()].place}。` + storyAfterHTML(st.boss);
-      clearStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd>`;
+      clearStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd>` + clockStatsHTML();
       setAdButtons(); ovClear.hidden = false; nextBtn.focus({ preventScroll: true });
     }, 700);
   }
@@ -4212,6 +4222,21 @@ function rushClear(shown) {
   }, 700);
 }
 function nextStageIdx() { return G.endless ? (G.stage + 1) % STAGES.length : G.stage + 1; }
+// クリア画面のタイムカード：退勤打刻と帰宅時刻（通常モードはケーキに間に合ったかも）
+function timecardHTML() {
+  const late = clockMin() - CAKE_MIN;
+  const cake = !storyOn() ? '' : `<dt>ケーキ ${hhmmOf(CAKE_MIN)}</dt><dd class="${late < 0 ? 'ok' : 'late'}">${late < 0 ? '間に合った' : durStr(late) + '遅れ'}</dd>`;
+  return `<div class="tc-h">タイムカード</div><dl><dt>退勤打刻</dt><dd>18:00</dd><dt>帰宅</dt><dd>${clockStr()}</dd>${cake}</dl>`;
+}
+// 面クリアの成績に足す行：いまの時刻（通常モードはケーキまでの残り）
+function clockStatsHTML() {
+  if (G.daily || G.bossMode || G.rush) return '';
+  const left = CAKE_MIN - clockMin();
+  return `<dt>現在時刻</dt><dd>${clockStr()}</dd>` + (storyOn() ? `<dt>ケーキまで</dt><dd>${left > 0 ? 'あと' + durStr(left) : 'もう遅刻'}</dd>` : '');
+}
+const clockMin = () => 18 * 60 + Math.floor(G.play * 10 / 60);
+const hhmmOf = m => `${Math.floor(m / 60) % 24}:${String(m % 60).padStart(2, '0')}`;
+const durStr = m => (m >= 60 ? Math.floor(m / 60) + '時間' : '') + (m % 60 || m < 60 ? (m % 60) + '分' : '');
 function clockStr() { const s = 18 * 3600 + Math.floor(G.play * 10); const h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60; return `${h}:${String(m).padStart(2, '0')}`; }
 
 /* ================= 進行 ================= */
@@ -4219,7 +4244,7 @@ function startStage(i, freshAmmo) {
   if (G.daily) Math.random = seeded(G.daily.key); // 今日のお題は再挑戦でも同じ並びで敵が出る
   G.stage = i; G.dist = 0; G.ents = []; G.bullets = []; G.queue = []; G.boss = null; G.bossPhase = false; G.door = null; G.exiting = false;
   G.spawnT = 2.2; G.itemT = i > 0 ? 1.5 : 3.5; G.cd = {}; G.drinkT = rnd(16, 22); if (freshAmmo) G.drinkStock = 0; G.decor = []; G.kitCount = 0; G.pending = null; G.death = null; G.slow = 1; G.slowBudget = 1.6; G.fireCD = 0;
-  G.parts = []; G.texts = []; G.bossIntro = null; G.notice = null; G.cutin = null;
+  G.parts = []; G.texts = []; G.bossIntro = null; G.notice = null; G.cutin = null; G.kyakka = null;
   G.tut = null; $('tutCard').hidden = true; G.stageScore = G.score || 0; G.combo = 0; G.comboT = 0; G.invSmash = 0; G.bossBumpT = 0; G.bossSlams = 0; G.midDone = false;
   resetPlayer(!!freshAmmo);
   // 残機は1回のプレイで持ち越す。同じフロアの再挑戦では、そのフロアに入ったときの数に戻す（満タンにはしないが、最低1は残す）
@@ -4248,7 +4273,7 @@ function startContinue(extraLife) {
 function newGame(ura, endless) { newRun(); G.ura = !!ura; G.endless = !!endless; G.test = false; G.score = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 }; G.play = 0; startStage(0, true); }
 function toTitle() {
   endDaily(); G.bossMode = null; G.rush = null; setBossModeButtons(); closePanel(); if (G.tut) endTut(false);
-  G.mode = 'title'; G.stage = 0; G.decor = []; G.ents = []; G.bullets = []; G.parts = []; G.texts = []; G.boss = null; G.death = null; G.banner = null; G.queue = []; G.cutin = null;
+  G.mode = 'title'; G.stage = 0; G.decor = []; G.ents = []; G.bullets = []; G.parts = []; G.texts = []; G.boss = null; G.death = null; G.banner = null; G.queue = []; G.cutin = null; G.kyakka = null;
   resetPlayer(true); P.y = H - 190;
   for (const o of [ovOver, ovClear, ovEnd, ovPause]) o.hidden = true;
   ovTitle.hidden = false; pauseBtn.hidden = true; musicStart(); updateBestLine();
@@ -4260,8 +4285,9 @@ function loseLife(type, killer) {
   if (type === 'starve') { for (let i = 0; i < 6 && ammo() < 3; i++) if (!P.slot[i]) P.slot[i] = 'fat'; P.noShirt = false; P.fat = ammo() / 6; P.fatV = 0; P.jacket = jacketTarget(); }
   P.inv = 2.5; G.invSmash = 0; G.pending = null; G.bossSlams = 2; // この無敵ではボスに体当たりダメージが入らない
   G.hitstop = 0.45; G.flash = 0.6; G.flashCol = type === 'starve' ? '#fff' : '#ffd0cc'; G.shake = 12;
-  text(type === 'starve' ? '燃え尽きかけた…！' : 'ギリギリ持ち直した！', P.x, P.y - 150, 20, '#fff');
-  text(G.lives ? `残機 あと${G.lives}` : 'もう後がない！', P.x, P.y - 124, 16, G.lives ? COL.memo : '#ff8d84');
+  // ヒットストップ中も読めるよう、拡大の演出なしで大きく出す
+  text('残機 －1', P.x, P.y - 156, 28, '#fff', { still: true, life: 1.6, max: 1.6 });
+  text((type === 'starve' ? '脂肪切れ　' : '') + (G.lives ? `のこり ${G.lives}` : 'もう後がない！'), P.x, P.y - 124, 19, G.lives ? COL.memo : '#ff8d84', { still: true, life: 1.6, max: 1.6 });
   sfx('hit'); Haptic.tap('heavy');
 }
 // 広告の復活：周りの弾を消し、脂肪を3個まで戻して少し無敵
@@ -4282,7 +4308,7 @@ function revive() {
   text('復活！', P.x, P.y - 130, 28, '#ffe27a'); sfx('kit'); Haptic.tap('medium'); musicResume();
 }
 // 広告：開始から6秒間無敵
-function giveStartDrink() { G.drinkStock = 1; text('ドリンクを1本持って出発！', P.x, P.y - 130, 18, '#ffe27a'); }
+function giveStartDrink() { G.drinkStock = 1; text('ドリンク携帯！', P.x, P.y - 130, 18, '#ffe27a'); }
 // ボスモードのときだけ結果画面のボタンを差し替える
 function setBossModeButtons() {
   nextBtn.textContent = G.rush ? 'もう一度ボスラッシュ' : G.bossMode ? 'もう一度ボスに挑む' : '次のフロアへ';
@@ -4337,7 +4363,7 @@ function step(dt, rdt) {
     G.ents = G.ents.filter(e => !e.dead);
     if (G.mode === 'play' && !G.exiting && !G.bossIntro) { G.score += scoreRate() * dt; if (G.score >= 100000) unlock('score100k'); }
     if (G.pending && G.mode === 'play') {
-      if (ammo() > 0) { G.pending = null; text('ギリギリセーフ！', P.x, P.y - 140, 22, COL.memo); sfx('kit'); Haptic.tap('medium'); }
+      if (ammo() > 0) { G.pending = null; text('セーフ！', P.x, P.y - 140, 22, COL.memo); sfx('kit'); Haptic.tap('medium'); }
       else { G.pending.t -= dt; if (G.pending.t <= 0) { G.pending = null; die('starve'); } }
     }
     updateParts(dt, spd);
@@ -4374,6 +4400,7 @@ function step(dt, rdt) {
   if (G.scorePop > 0) G.scorePop -= rdt;
   if (G.bossBumpT > 0) G.bossBumpT -= rdt;
   if (G.cutin) { G.cutin.t += rdt; if (G.cutin.t >= ORDER_CUT) G.cutin = null; }
+  if (G.kyakka) { G.kyakka.t += rdt; if (G.kyakka.t >= KYAKKA_DUR) G.kyakka = null; }
   if (G.bossIntro) {
     const I = G.bossIntro; I.t += rdt;
     if (!I.gong && G.boss && I.t > 0.35 + G.boss.def.who.length * 0.14) { I.gong = true; sfx('gong'); G.shake = 12; }
@@ -4411,16 +4438,36 @@ function drawAimGuide(c) {
   txt(c, '腹圧 ' + pw + '%', P.x, P.y + 86, F.px(13), pw > 80 ? COL.memo : '#fff', 'center', COL.ink, 3);
 }
 const hudB = { cv: document.createElement('canvas'), key: '' };
+// 業務命令中の上の表示：件名を書いた紙の札と、決裁期限の赤い帯。点数は却下したときの明細でだけ出す
+function drawRingi(c, od, bw) {
+  const K = !od && G.kyakka, label = '件名 ' + (od ? od.name : K.name);
+  let size = 11; c.font = F.zk(size, 700);
+  while (size > 8 && c.measureText(label).width > bw + 8) { size--; c.font = F.zk(size, 700); }
+  const w = Math.min(bw + 14, c.measureText(label).width + 14);
+  c.fillStyle = '#f2e6c8'; rr(c, 14, 13, w, 20, 3); c.fill();
+  c.fillStyle = COL.hanko; c.fillRect(14, 13, 3, 20);
+  txt(c, label, 21, 23.5, F.zk(size, 700), COL.ink, 'left');
+  if (K) { // 却下の直後：札に判子、2行目に手当
+    const st = clamp((K.t - 0.15) / 0.12, 0, 1), sc = lerp(2, 1, easeOut(st)); // 顔の判子より少し遅れて押す
+    if (st > 0) { c.save(); c.translate(w, 25); c.rotate(-0.22); c.scale(sc, sc); c.globalAlpha = st; hanko(c, 15); c.restore(); }
+    if (K.pay) { txt(c, '却下手当', 20, 58, F.zk(9, 700), '#b7c4ba', 'left'); txt(c, '+' + fmt(K.pay), 66, 59, F.dg(12), '#ffe27a', 'left'); }
+    else txt(c, '手当なし（Z使用）', 20, 58, F.zk(9, 700), '#9aa5a0', 'left');
+    return;
+  }
+  const k = clamp(1 - od.t / ORDER_DUR, 0, 1), x0 = 66, bl = bw + 20 - x0;
+  const late = !od.drinkUsed && k < 0.25 && Math.floor(G.t * 6) % 2 === 0;
+  txt(c, od.drinkUsed ? '手当なし' : '決裁期限', 20, 58, F.zk(9, 700), od.drinkUsed ? '#9aa5a0' : '#ffb3ab', 'left');
+  c.fillStyle = 'rgba(255,255,255,.12)'; c.fillRect(x0, 55, bl, 6);
+  c.fillStyle = od.drinkUsed ? '#6b7470' : late ? '#fff' : COL.hanko; c.fillRect(x0, 55, bl * k, 6);
+}
 function drawHUD(c) {
   const st = STAGES[G.stage], bw = 190;
   c.fillStyle = 'rgba(16,20,23,.86)'; rr(c, 8, 8, W - 16, 56, 10); c.fill();
   if (G.boss && G.boss.state !== 'ko') {
     const b = G.boss;
     const od = b.order && b.order.t >= 0 ? b.order : null;
-    if (od) { // 業務命令中：技名・残り時間・ボーナス
-      txt(c, od.name, 20, 23, F.zk(11, 700), COL.memo, 'left');
-      txt(c, `残り${Math.max(0, ORDER_DUR - od.t).toFixed(1)}秒　` + (od.drinkUsed ? '却下ボーナス失効' : '却下ボーナス ' + fmt(orderBonus(od) * modeMult())), 20, 58, F.px(9), od.drinkUsed ? '#9aa5a0' : '#ffe27a', 'left');
-    } else txt(c, b.def.who, 20, 24, F.zk(12), '#fff', 'left');
+    if (od || G.kyakka) drawRingi(c, od, bw); // 業務命令中：稟議書（件名と決裁期限）。却下の直後は判子と手当
+    else txt(c, b.def.who, 20, 24, F.zk(12), '#fff', 'left');
     c.fillStyle = 'rgba(255,255,255,.12)'; rr(c, 20, 38, bw, 12, 6); c.fill();
     c.fillStyle = COL.hanko; rr(c, 20, 38, Math.max(6, bw * b.hp / b.maxHp), 12, 6); c.fill();
     c.fillStyle = '#fff'; for (const q of (ORDERS[b.kind] || []).slice(b.orderIdx || 0)) c.fillRect(20 + bw * q.at - 1, 35, 2, 18); // 業務命令を宣言する位置
@@ -4446,7 +4493,6 @@ function drawHUD(c) {
   if (P.inv > 0) {
     const iy = 92;
     txt(c, '無敵 ' + P.inv.toFixed(1) + '秒', W / 2, iy, F.dg(18), '#ffe27a', 'center', COL.ink, 5);
-    if (G.combo >= 1) txt(c, `粉砕 ${G.combo}個　点数×${comboMult(G.combo).toFixed(1)}`, W / 2, iy + 20, F.zk(11, 700), '#fff6c8', 'center', COL.ink, 3);
   }
   if (G.comboT > 0 && G.combo >= 2) {
     const age = 1.3 - G.comboT, sc = age < 0.1 ? lerp(1.8, 1, age / 0.1) : 1;
@@ -4455,40 +4501,45 @@ function drawHUD(c) {
     if (comboMult(G.combo) > 1) txt(c, '×' + comboMult(G.combo).toFixed(1), 0, 30, F.dg(16), '#fff', 'center', COL.ink, 4);
     c.restore();
   }
-  // 下のパネルの上：残機（顔のアイコンを並べる）
-  for (let i = 0; i < (G.lives || 0); i++) {
-    const x = 22 + i * 22, y = H - 74;
-    c.fillStyle = COL.ink; circ(c, x, y, 9); c.fill(); c.fillStyle = COL.skin; circ(c, x, y, 7.5); c.fill();
-    c.strokeStyle = '#26292d'; c.lineWidth = 1; rr(c, x - 5, y - 2.5, 4, 3, 1); c.stroke(); rr(c, x + 1, y - 2.5, 4, 3, 1); c.stroke();
+  // 下のパネルの上：残機（「残機」の札と顔のアイコン。0のときは赤い札だけ）
+  {
+    const n = G.lives || 0, ly = H - 76, lw = 44 + Math.max(1, n) * 26;
+    c.fillStyle = 'rgba(16,20,23,.78)'; rr(c, 8, ly - 15, lw, 30, 15); c.fill();
+    txt(c, '残機', 16, ly + 1, F.zk(13, 900), n ? '#fff' : '#ff8d84', 'left');
+    if (!n) txt(c, '0', 64, ly + 1, F.dg(16), '#ff8d84');
+    for (let i = 0; i < n; i++) {
+      const x = 64 + i * 26;
+      c.fillStyle = COL.ink; circ(c, x, ly, 12); c.fill(); c.fillStyle = COL.skin; circ(c, x, ly, 10.5); c.fill();
+      c.strokeStyle = '#26292d'; c.lineWidth = 1.2; rr(c, x - 7, ly - 3.5, 6, 4, 1.5); c.stroke(); rr(c, x + 1, ly - 3.5, 6, 4, 1.5); c.stroke();
+    }
   }
-  if (G.lives > 0) txt(c, '残機', 22 + G.lives * 22 - 4, H - 74, F.zk(10, 700), '#fff', 'left', COL.ink, 3);
   // 下：自分の体脂肪（ボスの表示と分けるため別パネル・別配色）
   const a = ammo(), low = a <= 1, blink = low && Math.floor(G.t * 6) % 2 === 0;
-  const py = H - 58, pw = 270;
+  const py = H - 54, pw = 244, ph = 46;
   const kg = Math.round(50 + 48 * clamp(P.fat, 0, 1)), pkey = P.slot.join() + low + blink + kg + (cv.width / W) + (document.fonts ? document.fonts.status : '');
   if (hudB.key !== pkey) { // 下のパネルは中身が変わったときだけ描き直す
     hudB.key = pkey; const sc = cv.width / W;
     if (hudB.cv.width !== Math.ceil(W * sc)) { hudB.cv.width = Math.ceil(W * sc); hudB.cv.height = Math.ceil(64 * sc); }
     const c0 = c; c = hudB.cv.getContext('2d'); c.setTransform(sc, 0, 0, sc, 0, -py * sc + 4 * sc); c.clearRect(0, py - 4, W, 64);
-    c.fillStyle = 'rgba(16,20,23,.86)'; rr(c, 8, py, pw, 50, 12); c.fill();
-    c.strokeStyle = low ? (blink ? COL.hanko : 'rgba(210,51,43,.5)') : 'rgba(244,214,78,.7)'; c.lineWidth = 2; rr(c, 8, py, pw, 50, 12); c.stroke();
-    c.fillStyle = COL.skin; circ(c, 32, py + 25, 14); c.fill();
-    c.fillStyle = '#3c3b3a'; ell(c, 20, py + 23, 3, 6); c.fill(); ell(c, 44, py + 23, 3, 6); c.fill();
-    c.strokeStyle = '#26292d'; c.lineWidth = 1.3; rr(c, 22, py + 19, 8, 6, 2); c.stroke(); rr(c, 34, py + 19, 8, 6, 2); c.stroke();
-    c.fillStyle = '#6a2520'; ell(c, 32, py + 32, 3, low ? 3 : 1.5); c.fill();
+    c.fillStyle = 'rgba(16,20,23,.86)'; rr(c, 8, py, pw, ph, 12); c.fill();
+    c.strokeStyle = low ? (blink ? COL.hanko : 'rgba(210,51,43,.5)') : 'rgba(244,214,78,.7)'; c.lineWidth = 2; rr(c, 8, py, pw, ph, 12); c.stroke();
+    c.fillStyle = COL.skin; circ(c, 30, py + 23, 12); c.fill();
+    c.fillStyle = '#3c3b3a'; ell(c, 20, py + 21, 2.5, 5); c.fill(); ell(c, 40, py + 21, 2.5, 5); c.fill();
+    c.strokeStyle = '#26292d'; c.lineWidth = 1.2; rr(c, 22, py + 18, 7, 5, 2); c.stroke(); rr(c, 31, py + 18, 7, 5, 2); c.stroke();
+    c.fillStyle = '#6a2520'; ell(c, 30, py + 29, 2.5, low ? 2.5 : 1.3); c.fill();
     // 弾の数：撃つ順（POP）に左から並べ、使った分は薄い点線の枠だけ残す
-    txt(c, '脂肪の弾', 60, py + 11, F.zk(9, 700), '#cfd6d2', 'left');
+    txt(c, '脂肪の弾', 54, py + 10, F.zk(9, 700), '#cfd6d2', 'left');
     const order = POP.slice().reverse();
     for (let j = 0; j < 6; j++) {
-      const x = 70 + j * 24, y = py + 32, k = P.slot[order[j]];
-      if (k) drawFat(c, x, y, 10, k, 0);
-      else { c.strokeStyle = low ? (blink ? COL.hanko : 'rgba(210,51,43,.7)') : 'rgba(255,255,255,.28)'; c.lineWidth = 1.5; c.setLineDash([3, 3]); circ(c, x, y, 8); c.stroke(); c.setLineDash([]); }
+      const x = 62 + j * 21, y = py + 29, k = P.slot[order[j]];
+      if (k) drawFat(c, x, y, 9, k, 0);
+      else { c.strokeStyle = low ? (blink ? COL.hanko : 'rgba(210,51,43,.7)') : 'rgba(255,255,255,.28)'; c.lineWidth = 1.5; c.setLineDash([3, 3]); circ(c, x, y, 7); c.stroke(); c.setLineDash([]); }
     }
     // 残り数を大きな数字で
     const cnt = low ? (blink ? COL.hanko : '#ff8a80') : '#fff';
-    txt(c, String(a), 232, py + 25, F.dg(28), cnt, 'right');
-    txt(c, '/6', 234, py + 31, F.dg(12), '#cfd6d2', 'left');
-    txt(c, kg + 'kg', pw - 4, py + 43, F.px(9), '#9aa5a0', 'right');
+    txt(c, String(a), 210, py + 23, F.dg(24), cnt, 'right');
+    txt(c, '/6', 212, py + 28, F.dg(11), '#cfd6d2', 'left');
+    txt(c, kg + 'kg', pw - 2, py + 40, F.px(8), '#9aa5a0', 'right');
     c = c0;
   }
   c.drawImage(hudB.cv, 0, py - 4, W, 64);
@@ -4546,6 +4597,36 @@ function drawCutin(c) {
   txt(c, C.name, nx, cy - 6, F.zk(size, 900), '#fff', 'center', '#7a0e08', 6);
   txt(c, '「' + C.say + '」', nx, cy + 30, F.zk(13, 700), '#ffe27a', 'center', COL.ink, 4);
   c.restore();
+}
+// 却下の瞬間：ボスの顔に小さな「却下」の判子を押す（すぐ消える）。手当の額は上の表示に出す
+function drawKyakka(c) {
+  const K = G.kyakka; if (!K) return;
+  const t = K.t, a = clamp((1 - t) / 0.3, 0, 1); if (a <= 0) return;
+  const sc = t < 0.12 ? lerp(2.4, 1, easeOut(t / 0.12)) : 1;
+  c.save(); c.globalAlpha = a; c.translate(K.x, K.y); c.rotate(-0.22); c.scale(sc, sc);
+  hanko(c, 26);
+  c.restore();
+}
+function hanko(c, r) { // 丸い「却下」の判子
+  c.strokeStyle = COL.hanko; c.lineWidth = r * 0.14; circ(c, 0, 0, r); c.stroke();
+  c.lineWidth = r * 0.05; circ(c, 0, 0, r * 0.82); c.stroke();
+  txt(c, '却下', 0, 1, F.zk(Math.round(r * 0.66), 900), COL.hanko, 'center', '#fff', 3);
+}
+// 業務命令中は「緊急会議」：蛍光灯が落ち、左右の壁の上で赤い回転灯が回る（弾のある床の上には光を出さない）
+function drawAlarm(c) {
+  const b = G.boss; if (!b || !b.order || b.state === 'ko') return;
+  const calm = SETTINGS.calm ? 0.4 : 1;
+  for (const [x, ph] of [[WL / 2, 0], [WR + (W - WR) / 2, Math.PI]]) {
+    const y = 92, a = G.t * 5 + ph, glow = (0.5 + 0.5 * Math.cos(a)) * calm;
+    c.save(); c.beginPath(); c.rect(x < W / 2 ? 0 : WR, 64, WL, H - 64); c.clip();
+    const g = c.createRadialGradient(x, y, 2, x, y, 120);
+    g.addColorStop(0, `rgba(255,60,40,${0.55 * glow})`); g.addColorStop(1, 'rgba(255,60,40,0)');
+    c.fillStyle = g; c.fillRect(x - 120, y - 120, 240, 240);
+    c.restore();
+    c.fillStyle = '#3a3f44'; c.fillRect(x - 10, y + 8, 20, 6);
+    c.fillStyle = `rgb(${150 + Math.round(105 * glow)},30,24)`; c.beginPath(); c.arc(x, y + 8, 10, Math.PI, 0); c.fill();
+    c.fillStyle = `rgba(255,220,200,${0.8 * glow})`; c.beginPath(); c.arc(x + Math.sin(a) * 5, y + 3, 2.5, 0, TAU); c.fill();
+  }
 }
 function drawBossIntro(c) {
   const I = G.bossIntro, b = G.boss; if (!I || !b) return;
@@ -4666,17 +4747,18 @@ function render() {
   drawTexts(c);
   c.restore();
   // 色かぶり・周辺の暗さ（CSS）
-  setFx('tint', G.boss && G.boss.order ? 'rgba(25,0,35,.3)' : (TH().tint || 'transparent'));
+  setFx('tint', G.boss && G.boss.order ? 'rgba(8,12,18,.34)' : (TH().tint || 'transparent')); // 業務命令中は蛍光灯が落ちたように暗く
   setVig('A', '120,0,20', G.ura && G.mode !== 'title' ? 0.35 : 0);
   if (G.slow < 0.95) setVig('B', '30,60,120', (1 - G.slow) * 0.55);
   else setVig('B', '210,51,43', G.mode === 'play' && G.pending ? 0.3 + 0.15 * Math.sin(G.t * 16) : G.mode === 'play' && ammo() === 1 ? 0.12 + 0.08 * Math.sin(G.t * 8) : 0); // 画面の端だけ薄く。弾幕を隠さない
   // ここから上の層（HUD・演出）
   const u = uctx; u.setTransform(k, 0, 0, k, 0, 0); u.clearRect(0, 0, W, H);
-  if (G.mode === 'play' || G.mode === 'paused' || G.mode === 'tip' || G.mode === 'dying') drawHUD(u);
+  if (G.mode === 'play' || G.mode === 'paused' || G.mode === 'tip' || G.mode === 'dying') { drawAlarm(u); drawHUD(u); }
   drawBanner(u);
   drawWarning(u);
   drawBossIntro(u);
   drawCutin(u);
+  drawKyakka(u);
   drawTut(u);
   drawDeath(u);
   if (G.flash > 0) { u.globalAlpha = Math.min(1, G.flash) * (SETTINGS.calm ? 0.3 : 1); u.fillStyle = G.flashCol; u.fillRect(0, 0, W, H); u.globalAlpha = 1; }
@@ -5173,7 +5255,7 @@ const TIPS = [
   },
   {
     id: 'order', title: '業務命令（ボスの必殺技）',
-    body: 'ボスの体力が減ると<b>業務命令</b>を出す。弾の形が決まっているので、すき間を見つけて<b>顔に当てれば却下</b>。ドリンクを使わずに却下すると大ボーナス。',
+    body: 'ボスの体力が減ると<b>業務命令</b>を出す。弾の形が決まっているので、すき間を見つけて<b>顔に当てれば却下</b>。ドリンクを使わずに却下すると<b>却下手当</b>（大きな点数）が出る。',
     art(c) {
       tipFloor(c);
       c.save(); c.globalAlpha = 0.35; blit(c, sealSprite('shacho'), 160, 80, 150, 150); c.restore();
@@ -5345,7 +5427,7 @@ const STORY_AFTER = {
 };
 // エンディング（5面の社長を倒したあと。通常モードだけ）。娘のセリフは帰宅時刻と残りの脂肪で変わる
 function endingPages(info) {
-  const early = info.min < 20 * 60, /* 5面を通すと最速でも19時台になるので、20時前を「間に合った」にする */ hhmm = `${Math.floor(info.min / 60) % 24}:${String(info.min % 60).padStart(2, '0')}`;
+  const early = info.min < CAKE_MIN, /* 5面を通すと最速でも19時台になるので、20時前を「間に合った」にする */ hhmm = `${Math.floor(info.min / 60) % 24}:${String(info.min % 60).padStart(2, '0')}`;
   const fatLine = info.fat >= 6 ? '<br>パパ、今日もおなか<b>ぽよぽよ</b>だね！' : info.fat <= 1 ? '<br>……パパ、なんか<b>痩せた</b>？' : '';
   return [
     { who: '社長', text: STORY_AFTER.kyoshacho.text, art(c) { storyRoom(c, '#2a2f3a', '#323846'); storyBoss(c, 'shacho', 110, 116, 0.55); storyHero(c, 232, 124, 0.6); txt(c, '自宅前', 160, 18, F.dg(14), COL.memo, 'center', COL.ink, 4); } },
