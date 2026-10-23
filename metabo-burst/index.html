@@ -1190,6 +1190,22 @@ function part(c, name, x, y, a, sx, sy) {
   c.restore();
 }
 
+
+/* ================= 影（アニメ塗り） =================
+   光は左上から。塗った形の中だけに、右下へ1段暗い影を入れる。
+   shape(c) は形のパスを作る関数、(cx, cy, rx, ry) は形のおおよその中心と半径 */
+function darker(hex, k) {
+  const n = parseInt(hex.slice(1), 16), f = 1 - k;
+  return `rgb(${(n >> 16 & 255) * f | 0},${(n >> 8 & 255) * f | 0},${(n & 255) * f | 0})`;
+}
+function celShape(c, shape, cx, cy, rx, ry, shade, k) {
+  c.save(); c.beginPath(); shape(c); c.clip();
+  c.globalAlpha = k == null ? 0.6 : k; c.fillStyle = shade;
+  c.beginPath(); c.rect(cx - rx * 2, cy - ry * 2, rx * 4, ry * 4);
+  c.ellipse(cx - rx * 0.16, cy - ry * 0.2, rx * 1.04, ry * 1.04, 0, 0, TAU); c.fill('evenodd');
+  c.restore();
+}
+const celEll = (c, x, y, rx, ry, shade, k) => celShape(c, g => g.ellipse(x, y, rx, ry, 0, 0, TAU), x, y, rx, ry, shade, k);
 </script>
 <script>
 // メタボリック・バースト：主人公のパーツ（SVG）
@@ -1937,26 +1953,36 @@ function drawJoushi(c, e) {
     }
     c.rotate(clamp(-e.vx / 560, -0.6, 0.6) * 0.5);
   }
-  const ph = e.t * (dash ? 22 : 12);
+  const ph = e.t * (dash ? 22 : 12), R = hasParts(), edge = darker(suit, 0.45);
   for (const s of [-1, 1]) {
     const lift = Math.max(0, Math.sin(ph + (s > 0 ? Math.PI : 0))) * 5;
-    limb(c, [[s * 5, 12], [s * 6, 26 - lift]], 6.5, '#3d434b');
-    c.fillStyle = '#121316'; ell(c, s * 6.5, 27 - lift, 4.5, 2.6); c.fill();
+    if (R) { limbCel(c, [[s * 5, 12], [s * 6, 26 - lift]], 6.5, '#3d434b', '#22262b'); part(c, 'shoe', s * 6.5, 27 - lift, 0, s * 0.55); }
+    else { limb(c, [[s * 5, 12], [s * 6, 26 - lift]], 6.5, '#3d434b'); c.fillStyle = '#121316'; ell(c, s * 6.5, 27 - lift, 4.5, 2.6); c.fill(); }
   }
   c.fillStyle = suit; rr(c, -14, -12, 28, 27, 8); c.fill();
+  if (R) { c.strokeStyle = edge; c.lineWidth = 1.2; c.stroke(); celShape(c, g => rr(g, -14, -12, 28, 27, 8), 0, 1, 14, 14, edge, 0.5); }
   c.fillStyle = '#f2f5f8'; c.beginPath(); c.moveTo(-5, -12); c.lineTo(5, -12); c.lineTo(0, -2); c.closePath(); c.fill();
   c.fillStyle = '#2f5fa8'; c.beginPath(); c.moveTo(-1.8, -10); c.lineTo(1.8, -10); c.lineTo(2.6, 5); c.lineTo(0, 8); c.lineTo(-2.6, 5); c.closePath(); c.fill();
   for (const s of [-1, 1]) {
     const hand = dash ? [s * 8, 24] : e.state === 'aim' ? [s * 20, -12 + Math.sin(e.t * 30) * 2] : [s * 17, 5 + Math.sin(ph + s) * 3];
-    limb(c, [[s * 12, -8], hand], 6, suit);
-    c.fillStyle = '#f0c09c'; circ(c, hand[0], hand[1], 3.6); c.fill();
+    if (R) { limbCel(c, [[s * 12, -8], hand], 6, suit, edge); part(c, 'hand', hand[0], hand[1], 0, s * 0.66); }
+    else { limb(c, [[s * 12, -8], hand], 6, suit); c.fillStyle = '#f0c09c'; circ(c, hand[0], hand[1], 3.6); c.fill(); }
   }
   c.fillStyle = '#f0c09c'; circ(c, 0, -23, 11); c.fill();
+  if (R) { c.strokeStyle = '#9a5a3d'; c.lineWidth = 1; c.stroke(); celEll(c, 0, -23, 11, 11, COL.skinShade, 0.8); }
   c.fillStyle = tout ? '#e0b84a' : '#1c1f24'; c.beginPath(); c.arc(0, -24, 11.6, Math.PI, 0); c.lineTo(11.6, -25); c.lineTo(-3, -26); c.lineTo(-11.6, -22); c.closePath(); c.fill();
-  c.strokeStyle = '#1c1f24'; c.lineWidth = 1.3; c.strokeRect(-8.5, -23, 6.5, 4.5); c.strokeRect(2, -23, 6.5, 4.5);
-  c.lineWidth = 1.8; line(c, -9, -27, -3, -24.5); line(c, 9, -27, 3, -24.5);
-  if (dash || e.state === 'aim') { c.fillStyle = '#5c1f1a'; ell(c, 0, -15, 3.2, 2.8); c.fill(); }
-  else line(c, -3, -15, 3, -15);
+  if (R) {
+    for (const s of [-1, 1]) part(c, 'eye', s * 5.2, -20.6, 0, s * 0.55);
+    part(c, 'glasses', 0, -20.2, 0, 0.62);
+    for (const s of [-1, 1]) part(c, 'brow', s * 6, -25.6, -s * 0.4, s * 0.8);
+    if (dash || e.state === 'aim') part(c, 'mouthOpen', 0, -15, 0, 0.9, 0.95);
+    else { c.strokeStyle = '#5c1f1a'; c.lineWidth = 1.4; line(c, -3, -15, 3, -15); }
+  } else {
+    c.strokeStyle = '#1c1f24'; c.lineWidth = 1.3; c.strokeRect(-8.5, -23, 6.5, 4.5); c.strokeRect(2, -23, 6.5, 4.5);
+    c.lineWidth = 1.8; line(c, -9, -27, -3, -24.5); line(c, 9, -27, 3, -24.5);
+    if (dash || e.state === 'aim') { c.fillStyle = '#5c1f1a'; ell(c, 0, -15, 3.2, 2.8); c.fill(); }
+    else line(c, -3, -15, 3, -15);
+  }
   c.restore();
   if (e.state === 'aim') {
     txt(c, '!', e.x, e.y - 50 + Math.sin(e.t * 20) * 2, F.dg(24), COL.hanko, 'center', '#fff', 4);
@@ -1966,16 +1992,25 @@ function drawJoushi(c, e) {
 function drawDrunk(c, e) {
   c.save(); c.translate(e.x, e.y); c.rotate(Math.sin(e.t * 2.2) * 0.25);
   c.fillStyle = 'rgba(25,35,28,.25)'; ell(c, 0, 27, 17, 5); c.fill();
-  const ph = e.t * 7;
-  for (const s of [-1, 1]) { const lift = Math.max(0, Math.sin(ph + (s > 0 ? Math.PI : 0))) * 5; limb(c, [[s * 5, 12], [s * 8, 26 - lift]], 6.5, '#3d434b'); c.fillStyle = '#121316'; ell(c, s * 8.5, 27 - lift, 4.5, 2.6); c.fill(); }
+  const ph = e.t * 7, R = hasParts(), L = R ? limbCel : limb;
+  for (const s of [-1, 1]) {
+    const lift = Math.max(0, Math.sin(ph + (s > 0 ? Math.PI : 0))) * 5;
+    if (R) { limbCel(c, [[s * 5, 12], [s * 8, 26 - lift]], 6.5, '#3d434b', '#22262b'); part(c, 'shoe', s * 8.5, 27 - lift, 0, s * 0.55); }
+    else { limb(c, [[s * 5, 12], [s * 8, 26 - lift]], 6.5, '#3d434b'); c.fillStyle = '#121316'; ell(c, s * 8.5, 27 - lift, 4.5, 2.6); c.fill(); }
+  }
   c.fillStyle = '#f2f5f8'; rr(c, -14, -12, 28, 28, 8); c.fill(); c.strokeStyle = '#9aa3ad'; c.lineWidth = 1; c.stroke();
-  limb(c, [[-12, -8], [-20, 6]], 6, '#f2f5f8', '#9aa3ad');
-  limb(c, [[12, -8], [18, 4]], 6, '#f2f5f8', '#9aa3ad');
+  if (R) celShape(c, g => rr(g, -14, -12, 28, 28, 8), 0, 2, 14, 14, COL.shirtShade, 0.85);
+  L(c, [[-12, -8], [-20, 6]], 6, '#f2f5f8', '#9aa3ad');
+  L(c, [[12, -8], [18, 4]], 6, '#f2f5f8', '#9aa3ad');
   c.fillStyle = '#fff'; c.strokeStyle = '#c9302a'; c.lineWidth = 1.2; rr(c, 14, 2, 14, 10, 1); c.fill(); c.stroke(); line(c, 21, 0, 21, 2);
   c.fillStyle = '#f08a6a'; circ(c, 0, -23, 11); c.fill();
+  if (R) { c.strokeStyle = '#a8503a'; c.lineWidth = 1; c.stroke(); celEll(c, 0, -23, 11, 11, '#c9604a', 0.6); }
   c.fillStyle = COL.tie; c.fillRect(-11, -30, 22, 4); c.fillRect(9, -30, 9, 3);
-  c.strokeStyle = '#1b1c1e'; c.lineWidth = 1.6; line(c, -7, -24, -3, -22); line(c, -7, -20, -3, -22); line(c, 7, -24, 3, -22); line(c, 7, -20, 3, -22);
-  c.fillStyle = '#6a2520'; ell(c, 0, -15, 3, 2); c.fill();
+  if (R) { for (const s of [-1, 1]) part(c, 'eyeStrain', s * 5, -22, 0, s * 0.62); part(c, 'mouthOpen', 0, -15, 0, 0.85, 0.7); }
+  else {
+    c.strokeStyle = '#1b1c1e'; c.lineWidth = 1.6; line(c, -7, -24, -3, -22); line(c, -7, -20, -3, -22); line(c, 7, -24, 3, -22); line(c, 7, -20, 3, -22);
+    c.fillStyle = '#6a2520'; ell(c, 0, -15, 3, 2); c.fill();
+  }
   c.restore();
   if ((e.t % 3) < 1.6) bubble(c, 'ヒック', e.x + 28, e.y - 46, 10);
 }
@@ -2082,29 +2117,35 @@ function drawBucho(c, e) {
   c.save(); c.translate(e.x, e.y);
   if (e.hurt > 0 && Math.floor(e.hurt * 30) % 2 === 0) c.globalAlpha = 0.45;
   c.fillStyle = 'rgba(25,35,28,.25)'; ell(c, 0, 34, 70, 9); c.fill();
-  const ph = e.t * 6;
+  const ph = e.t * 6, R = hasParts();
   for (const s of [-1, 1]) {
     const lift = Math.max(0, Math.sin(ph + (s > 0 ? Math.PI : 0))) * 4;
-    limb(c, [[s * 14, 20], [s * 16, 32 - lift]], 12, '#4b3a2a');
-    c.fillStyle = '#121316'; ell(c, s * 17, 33 - lift, 7, 3.6); c.fill();
+    if (R) { limbCel(c, [[s * 14, 20], [s * 16, 32 - lift]], 12, '#4b3a2a', '#2c2118'); part(c, 'shoe', s * 17, 33 - lift, 0, s * 0.85); }
+    else { limb(c, [[s * 14, 20], [s * 16, 32 - lift]], 12, '#4b3a2a'); c.fillStyle = '#121316'; ell(c, s * 17, 33 - lift, 7, 3.6); c.fill(); }
   }
   for (const s of [-1, 1]) {
     const hy = -14 + Math.sin(e.t * 5 + s) * 6;
-    limb(c, [[s * 32, -12], [s * 54, -10 + Math.sin(e.t * 5 + s) * 3], [s * 70, hy]], 13, SU, SE);
+    (R ? limbCel : limb)(c, [[s * 32, -12], [s * 54, -10 + Math.sin(e.t * 5 + s) * 3], [s * 70, hy]], 13, SU, SE);
     c.fillStyle = '#f2f5f8'; circ(c, s * 70, hy, 6.8); c.fill();
     c.fillStyle = FA; c.strokeStyle = '#b57e5c'; c.lineWidth = 1.2; circ(c, s * 76, hy, 8); c.fill(); c.stroke();
     for (let k = -1; k <= 1; k++) { circ(c, s * 83, hy + k * 4.5, 2.6); c.fill(); c.stroke(); }
   }
   c.fillStyle = SU; ell(c, 0, 2, 44, 31); c.fill(); c.strokeStyle = SE; c.lineWidth = 1.5; c.stroke();
+  if (R) celEll(c, 0, 2, 44, 31, SE, 0.55);
   c.fillStyle = '#f5f3ec'; ell(c, 0, 8, 27, 22); c.fill();
+  if (R) celEll(c, 0, 8, 27, 22, COL.shirtShade, 0.8);
   c.strokeStyle = 'rgba(120,120,140,.5)'; c.lineWidth = 0.9;
   for (let k = 0; k < 3; k++) { const y = -4 + k * 9; c.beginPath(); c.moveTo(-3, y); c.quadraticCurveTo(-12, y - 3, -20, y - 1); c.stroke(); c.beginPath(); c.moveTo(3, y); c.quadraticCurveTo(12, y - 3, 20, y - 1); c.stroke(); drawButton(c, 0, y, 2.6); }
   c.fillStyle = TI; c.beginPath(); c.moveTo(-3, -24); c.lineTo(3, -24); c.lineTo(4, -8); c.lineTo(0, -4); c.lineTo(-4, -8); c.closePath(); c.fill();
   c.fillStyle = FA; circ(c, 0, -34, 16); c.fill(); c.strokeStyle = '#b57e5c'; c.lineWidth = 1.2; c.stroke();
+  if (R) celEll(c, 0, -34, 16, 16, darker(FA, 0.16), 0.8);
   c.fillStyle = 'rgba(255,255,255,.6)'; ell(c, -5, -45, 6, 3, -0.3); c.fill();
-  c.fillStyle = '#7d7d7d'; for (const s of [-1, 1]) { ell(c, s * 14.5, -33, 3.2, 6); c.fill(); }
-  c.strokeStyle = '#1b1c1e'; c.lineWidth = 2.6; line(c, -10, -39, -3, -37); line(c, 10, -39, 3, -37);
-  c.lineWidth = 1.6; c.beginPath(); c.arc(-6, -33, 2.4, Math.PI + 0.4, -0.4); c.stroke(); c.beginPath(); c.arc(6, -33, 2.4, Math.PI + 0.4, -0.4); c.stroke();
+  c.fillStyle = '#7d7d7d'; for (const s of [-1, 1]) { if (R) part(c, 'hairSide', s * 14, -33, s * 0.1, s * 0.95); else { ell(c, s * 14.5, -33, 3.2, 6); c.fill(); } }
+  if (R) { for (const s of [-1, 1]) { part(c, 'eyeShut', s * 6, -32.6, 0, s * 0.9); part(c, 'brow', s * 6.5, -38.2, -s * 0.28, s * 1.05); } part(c, 'nose', 0.3, -29.6, 0, 0.9); }
+  else {
+    c.strokeStyle = '#1b1c1e'; c.lineWidth = 2.6; line(c, -10, -39, -3, -37); line(c, 10, -39, 3, -37);
+    c.lineWidth = 1.6; c.beginPath(); c.arc(-6, -33, 2.4, Math.PI + 0.4, -0.4); c.stroke(); c.beginPath(); c.arc(6, -33, 2.4, Math.PI + 0.4, -0.4); c.stroke();
+  }
   c.fillStyle = '#1b1c1e'; ell(c, -4.5, -27, 5, 2.2, 0.25); c.fill(); ell(c, 4.5, -27, 5, 2.2, -0.25); c.fill();
   c.strokeStyle = '#6a2520'; c.lineWidth = 1.5; c.beginPath(); c.arc(0, -25, 4, 0.3, Math.PI - 0.3); c.stroke();
   c.globalAlpha = 1;
@@ -2239,11 +2280,12 @@ function drawBoss(c, b) {
   }
 }
 function drawShacho(c, b) {
-  const g = b.guard, cast = b.cast > 0;
+  const g = b.guard, cast = b.cast > 0, R = hasParts();
   c.fillStyle = '#3a2a24'; rr(c, -64, -118, 128, 158, 32); c.fill();
   c.strokeStyle = '#5a4238'; c.lineWidth = 3; rr(c, -56, -110, 112, 142, 26); c.stroke();
   c.fillStyle = '#1f2a44'; ell(c, 0, 14, 74, 52); c.fill();
   c.save(); ell(c, 0, 14, 74, 52); c.clip(); c.strokeStyle = 'rgba(255,255,255,.09)'; c.lineWidth = 1; for (let x = -70; x < 70; x += 7) line(c, x, -40, x, 70); c.restore();
+  if (R) celEll(c, 0, 14, 74, 52, '#0c1220', 0.55);
   c.fillStyle = '#f4f2ea'; c.beginPath(); c.moveTo(-22, -32); c.lineTo(22, -32); c.lineTo(0, 16); c.closePath(); c.fill();
   c.fillStyle = '#d9a521'; c.beginPath(); c.moveTo(-4, -28); c.lineTo(4, -28); c.lineTo(6, 6); c.lineTo(0, 14); c.lineTo(-6, 6); c.closePath(); c.fill();
   c.fillStyle = '#f4d64e'; circ(c, -34, -16, 4); c.fill();
@@ -2252,6 +2294,7 @@ function drawShacho(c, b) {
   c.fillStyle = '#f1c29b'; c.strokeStyle = '#b57e5c'; c.lineWidth = 1.5;
   for (const s of [-1, 1]) { circ(c, s * 26, hy + 2, 6); c.fill(); c.stroke(); }
   circ(c, hx, hy, 27); c.fill(); c.stroke();
+  if (R) celEll(c, hx, hy, 27, 27, '#dc9f78', 0.75);
   c.fillStyle = '#efefef'; for (const s of [-1, 1]) { ell(c, s * 23, hy - 6, 6, 10, s * 0.3); c.fill(); }
   c.fillStyle = 'rgba(255,255,255,.7)'; ell(c, -9, hy - 17, 9, 4.5, -0.35); c.fill();
   star(c, 8, hy - 20, 4 + Math.sin(G.t * 8) * 2, '#fff');
@@ -2262,15 +2305,16 @@ function drawShacho(c, b) {
   for (const s of [-1, 1]) { circ(c, s * 10, hy - 4, 7); c.stroke(); }
   c.fillStyle = '#1b1c1e'; c.strokeStyle = '#1b1c1e'; c.lineWidth = 2;
   if (hurt) for (const s of [-1, 1]) { line(c, s * 10 - 3, hy - 7, s * 10 + 3, hy - 1); line(c, s * 10 + 3, hy - 7, s * 10 - 3, hy - 1); }
+  else if (R) for (const s of [-1, 1]) part(c, 'eye', s * 10, hy - 4, 0, s * 0.95);
   else for (const s of [-1, 1]) { circ(c, s * 10, hy - 4, 2); c.fill(); }
   c.fillStyle = '#f7f7f7';
   for (const s of [-1, 1]) { c.beginPath(); c.moveTo(0, hy + 7); c.quadraticCurveTo(s * 14, hy + 2, s * 24, hy + 1 - (hurt ? -4 : 6)); c.quadraticCurveTo(s * 16, hy + 12, 0, hy + 11); c.fill(); }
-  if (hurt) { c.fillStyle = '#6a2520'; ell(c, 0, hy + 17, 6, 5); c.fill(); }
+  if (hurt) { if (R) part(c, 'mouthOpen', 0, hy + 17, 0, 1.6, 1.6); else { c.fillStyle = '#6a2520'; ell(c, 0, hy + 17, 6, 5); c.fill(); } }
   // 腕と資料
   const fx = lerp(-62, 0, g), fy = lerp(26, hy + 2, g), fr = lerp(-0.5, 0, g);
   const handL = [fx - 30 * Math.cos(fr), fy + 22], handR = cast ? [64, -90 + Math.sin(G.t * 20) * 4] : [fx + 30 * Math.cos(fr), fy + 22];
-  limb(c, [[-54, -16], [-62, 14], handL], 16, '#1f2a44', '#141b2e');
-  limb(c, [[54, -16], cast ? [70, -50] : [62, 14], handR], 16, '#1f2a44', '#141b2e');
+  (R ? limbCel : limb)(c, [[-54, -16], [-62, 14], handL], 16, '#1f2a44', '#141b2e');
+  (R ? limbCel : limb)(c, [[54, -16], cast ? [70, -50] : [62, 14], handR], 16, '#1f2a44', '#141b2e');
   if (g > 0.03 || !cast) {
     c.save(); c.translate(fx, fy); c.rotate(fr);
     c.fillStyle = '#2e5aa6'; c.strokeStyle = '#183466'; c.lineWidth = 2; rr(c, -38, -30, 76, 58, 4); c.fill(); c.stroke();
@@ -2279,31 +2323,36 @@ function drawShacho(c, b) {
     c.strokeStyle = COL.hanko; c.lineWidth = 2; rr(c, 10, 4, 22, 16, 2); c.stroke(); txt(c, '極秘', 21, 12.5, F.zk(8), COL.hanko);
     c.restore();
   }
-  c.fillStyle = '#f1c29b'; for (const h of [handL, handR]) { circ(c, h[0], h[1], 8); c.fill(); }
+  if (R) { part(c, 'hand', handL[0], handL[1], 0, -1.45); part(c, 'hand', handR[0], handR[1], 0, 1.45); }
+  else { c.fillStyle = '#f1c29b'; for (const h of [handL, handR]) { circ(c, h[0], h[1], 8); c.fill(); } }
 }
 function drawSenmu(c, b) {
-  const g = b.guard, hy = -54, hurt = b.hurt > 0 || b.state === 'ko';
+  const g = b.guard, hy = -54, hurt = b.hurt > 0 || b.state === 'ko', R = hasParts();
   c.rotate(Math.sin(G.t * 2.2) * 0.07);
   c.fillStyle = 'rgba(25,35,28,.25)'; ell(c, 0, 66, 60, 10); c.fill();
-  for (const s of [-1, 1]) limb(c, [[s * 18, 40], [s * 22, 64]], 15, '#2b2f3a');
+  for (const s of [-1, 1]) { if (R) { limbCel(c, [[s * 18, 40], [s * 22, 64]], 15, '#2b2f3a', '#16181e'); part(c, 'shoe', s * 23, 66, 0, s * 1.05); } else limb(c, [[s * 18, 40], [s * 22, 64]], 15, '#2b2f3a'); }
   c.fillStyle = '#f3f1ea'; ell(c, 0, 12, 62, 50); c.fill(); c.strokeStyle = '#a9a594'; c.lineWidth = 1.5; c.stroke();
+  if (R) celEll(c, 0, 12, 62, 50, '#bdb8a6', 0.8);
   c.fillStyle = 'rgba(240,170,120,.95)'; ell(c, 0, 30, 22, 15); c.fill();
   c.fillStyle = '#b5684a'; circ(c, 2, 32, 2.2); c.fill();
   for (let k = 0; k < 3; k++) drawButton(c, 0, -24 + k * 13, 3.6);
   c.fillStyle = '#f08a6a'; c.strokeStyle = '#a8503a'; c.lineWidth = 1.5;
   for (const s of [-1, 1]) { circ(c, s * 25, hy + 2, 6); c.fill(); c.stroke(); }
   circ(c, 0, hy, 26); c.fill(); c.stroke();
+  if (R) celEll(c, 0, hy, 26, 26, '#c9604a', 0.6);
   c.fillStyle = 'rgba(255,255,255,.5)'; ell(c, -8, hy - 16, 8, 4, -0.3); c.fill();
   c.fillStyle = COL.tie; c.fillRect(-26, hy - 14, 52, 7);
   c.save(); c.translate(24, hy - 11); c.rotate(0.5 + Math.sin(G.t * 6) * 0.2); c.fillRect(0, -3, 22, 6); c.beginPath(); c.moveTo(22, -5); c.lineTo(30, 0); c.lineTo(22, 5); c.fill(); c.restore();
   c.strokeStyle = '#1b1c1e'; c.lineWidth = 2.2;
   if (hurt) for (const s of [-1, 1]) { line(c, s * 9 - 3, hy - 4, s * 9 + 3, hy + 2); line(c, s * 9 + 3, hy - 4, s * 9 - 3, hy + 2); }
+  else if (R) for (const s of [-1, 1]) part(c, 'eyeStrain', s * 9.5, hy - 1, 0, s * 1.45);
   else for (const s of [-1, 1]) { line(c, s * 13, hy - 4, s * 6, hy - 1); line(c, s * 6, hy - 1, s * 13, hy + 2); }
   c.fillStyle = 'rgba(230,40,40,.5)'; ell(c, -14, hy + 7, 6, 3.5); c.fill(); ell(c, 14, hy + 7, 6, 3.5); c.fill();
-  c.fillStyle = '#6a2520'; c.beginPath(); c.arc(0, hy + 9, 8, 0.1, Math.PI - 0.1); c.fill();
+  if (R) part(c, 'mouthSmile', 0, hy + 9, 0, 1.75);
+  else { c.fillStyle = '#6a2520'; c.beginPath(); c.arc(0, hy + 9, 8, 0.1, Math.PI - 0.1); c.fill(); }
   const mx = lerp(54, 0, g), my = lerp(-6, hy + 6, g), yx = -66, yy = -40 + Math.sin(G.t * 5) * 6;
-  limb(c, [[44, -24], [58, 4], [mx + 10, my + 10]], 15, '#f3f1ea', '#a9a594');
-  limb(c, [[-44, -24], [-62, -10], [yx, yy]], 15, '#f3f1ea', '#a9a594');
+  (R ? limbCel : limb)(c, [[44, -24], [58, 4], [mx + 10, my + 10]], 15, '#f3f1ea', '#a9a594');
+  (R ? limbCel : limb)(c, [[-44, -24], [-62, -10], [yx, yy]], 15, '#f3f1ea', '#a9a594');
   c.strokeStyle = '#d8b67a'; c.lineWidth = 2; line(c, yx, yy, yx - 4, yy - 34);
   c.fillStyle = '#8a4b22'; for (let k = 0; k < 3; k++) { circ(c, yx - 1 - k * 1.2, yy - 12 - k * 8, 5); c.fill(); }
   c.fillStyle = '#f08a6a'; circ(c, yx, yy, 8); c.fill();
@@ -2312,16 +2361,18 @@ function drawSenmu(c, b) {
   if (!hurt && Math.floor(G.t * 1.5) % 3 === 0) { c.fillStyle = 'rgba(255,255,255,.7)'; circ(c, -32, hy - 30 - (G.t * 30) % 20, 5); c.fill(); }
 }
 function drawClient(c, b) {
-  const g = b.guard, dashing = b.dash && b.dash.phase !== 'tele';
+  const g = b.guard, dashing = b.dash && b.dash.phase !== 'tele', R = hasParts();
   if (dashing) { c.strokeStyle = 'rgba(210,51,43,.6)'; c.lineWidth = 4; circ(c, 0, 10, 46 + Math.sin(G.t * 40) * 3); c.stroke(); }
   c.fillStyle = 'rgba(25,35,28,.25)'; ell(c, 0, 66, 46, 9); c.fill();
-  for (const s of [-1, 1]) { limb(c, [[s * 14, 40], [s * 16, 64]], 13, '#121316'); }
+  for (const s of [-1, 1]) { if (R) { limbCel(c, [[s * 14, 40], [s * 16, 64]], 13, '#121316', '#000'); part(c, 'shoe', s * 17, 66, 0, s * 0.95); } else limb(c, [[s * 14, 40], [s * 16, 64]], 13, '#121316'); }
   c.fillStyle = '#17181c'; rr(c, -42, -34, 84, 80, 18); c.fill();
+  if (R) { c.strokeStyle = '#000'; c.lineWidth = 1.5; c.stroke(); celShape(c, g2 => rr(g2, -42, -34, 84, 80, 18), 0, 6, 42, 40, '#000', 0.5); }
   c.fillStyle = '#f4f2ea'; c.beginPath(); c.moveTo(-12, -34); c.lineTo(12, -34); c.lineTo(0, 0); c.closePath(); c.fill();
   c.fillStyle = '#0b0b0d'; c.fillRect(-2, -30, 4, 30);
   c.fillStyle = '#c9a227'; c.fillRect(-36, 10, 12, 3);
   const hy = -60, hurt = b.hurt > 0 || b.state === 'ko';
   c.fillStyle = '#e8b892'; c.strokeStyle = '#a8704e'; c.lineWidth = 1.4; ell(c, 0, hy, 22, 25); c.fill(); c.stroke();
+  if (R) celEll(c, 0, hy, 22, 25, '#c98d68', 0.75);
   if (hurt) { c.fillStyle = 'rgba(230,60,50,.35)'; ell(c, 0, hy, 22, 25); c.fill(); }
   c.fillStyle = '#121214'; c.beginPath(); c.moveTo(-23, hy - 4); c.quadraticCurveTo(-26, hy - 34, 4, hy - 34); c.quadraticCurveTo(30, hy - 32, 23, hy - 6); c.quadraticCurveTo(10, hy - 20, -23, hy - 4); c.fill();
   c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 2; c.beginPath(); c.moveTo(-12, hy - 27); c.quadraticCurveTo(2, hy - 32, 14, hy - 26); c.stroke();
@@ -2331,9 +2382,9 @@ function drawClient(c, b) {
   if (hurt) c.arc(0, hy + 14, 5, Math.PI + 0.3, -0.3); else c.arc(2, hy + 8, 7, 0.2, Math.PI * 0.8);
   c.stroke();
   const px = lerp(46, 12, g), py = lerp(20, hy, g);
-  limb(c, [[34, -26], [44, 0], [px - 2, py + 18]], 14, '#17181c', '#000');
-  limb(c, [[-34, -26], [-44, 4], [-40, 30]], 14, '#17181c', '#000');
-  c.fillStyle = '#e8b892'; circ(c, -40, 30, 7); c.fill();
+  (R ? limbCel : limb)(c, [[34, -26], [44, 0], [px - 2, py + 18]], 14, '#17181c', '#000');
+  (R ? limbCel : limb)(c, [[-34, -26], [-44, 4], [-40, 30]], 14, '#17181c', '#000');
+  if (R) part(c, 'hand', -40, 30, 0, -1.25); else { c.fillStyle = '#e8b892'; circ(c, -40, 30, 7); c.fill(); }
   c.save(); c.translate(px, py); c.rotate(lerp(0.4, -0.15, g));
   const sc = lerp(0.9, 1.9, g); c.scale(sc, sc);
   c.fillStyle = '#15171b'; rr(c, -10, -17, 20, 34, 4); c.fill();
@@ -4804,19 +4855,31 @@ function startWithStory() {
   storySeen('prologue');
   showStory(PROLOGUE, () => newGame(false));
 }
-// あらすじ：見た場面だけ読み返せる
+// ボスのひとことを紙芝居のページにする（あらすじから通して見るとき用）
+function storyAfterPages() {
+  const out = [];
+  STAGES.forEach((st, i) => {
+    const s = STORY_AFTER[st.boss]; if (!s || !STORY_SEEN[st.boss]) return;
+    const th = THEMES[st.theme];
+    out.push({ who: s.who, text: s.text, art(c) { storyRoom(c, th.floor, th.floor2); storyBoss(c, st.boss, 160, 112, 0.6); txt(c, st.name + ' CLEAR', 160, 18, F.px(13), '#fff', 'center', COL.ink, 4); } });
+    if (i === STAGES.length - 1) out.push({ text: STORY_CONT + '<br><b>（4面へ つづく）</b>', art(c) { storyRoom(c, '#2a3140', '#343c4d'); storyHero(c, 160, 124, 0.62); txt(c, '終電', 160, 20, F.dg(15), COL.memo, 'center', COL.ink, 4); } });
+  });
+  return out;
+}
+// あらすじ：見た場面だけ読み返せる。上のボタンで紙芝居をもう一度見られる
 function showSynopsis() {
-  const pages = STORY_SEEN.prologue ? PROLOGUE : [];
-  const after = STAGES.map(st => st.boss).filter(k => STORY_AFTER[k]);
-  const pro = pages.map((pg, i) => pg.card ? '' : `<li>${pg.who ? `<b>${esc(pg.who)}</b>` : ''}<canvas class="tipart" data-story="${i}" aria-hidden="true"></canvas><p>${pg.text}</p></li>`).join('')
-    || '<li class="lock"><b>？？？</b><p>「退勤を打刻」で始まります</p></li>';
-  const aft = after.map((k, i) => STORY_SEEN[k]
-    ? `<li><b>${esc(STAGES[i].name)} ${esc(STORY_AFTER[k].who)}</b><p>「${STORY_AFTER[k].text}」</p>${i === STAGES.length - 1 ? `<p>${STORY_CONT}</p>` : ''}</li>`
-    : `<li class="lock"><b>${esc(STAGES[i].name)} ？？？</b><p>通常モードでボスを倒すと読めます</p></li>`).join('');
-  openPanel('あらすじ', `<p class="pnote">モーレツZ事件</p><ul class="tips">${pro}${aft}</ul>
-    ${STORY_SEEN.prologue ? '<button id="storyReplay" class="ghost" type="button">プロローグをもう一度見る</button>' : ''}`);
+  const seen = !!STORY_SEEN.prologue, after = storyAfterPages();
+  const pro = seen ? PROLOGUE.map((pg, i) => pg.card ? '' : `<li>${pg.who ? `<b>${esc(pg.who)}</b>` : ''}<canvas class="tipart" data-story="${i}" aria-hidden="true"></canvas><p>${pg.text}</p></li>`).join('')
+    : '<li class="lock"><b>？？？</b><p>「退勤を打刻」で始まります</p></li>';
+  const aft = STAGES.map((st, i) => STORY_AFTER[st.boss] && (STORY_SEEN[st.boss]
+    ? `<li><b>${esc(st.name)} ${esc(STORY_AFTER[st.boss].who)}</b><p>「${STORY_AFTER[st.boss].text}」</p>${i === STAGES.length - 1 ? `<p>${STORY_CONT}</p>` : ''}</li>`
+    : `<li class="lock"><b>${esc(st.name)} ？？？</b><p>通常モードでボスを倒すと読めます</p></li>`)).join('');
+  const btns = seen ? `<div class="row"><button id="storyReplay" class="btn" type="button">▶ プロローグを見る</button>${after.length ? '<button id="storyAll" class="ghost" type="button">▶ ここまで通して見る</button>' : ''}</div>` : '';
+  openPanel('あらすじ', `<p class="pnote">モーレツZ事件　見た場面はいつでも見返せます</p>${btns}<ul class="tips">${pro}${aft}</ul>`);
   panelBody.querySelectorAll('canvas[data-story]').forEach(cvs => drawStoryArt(cvs, PROLOGUE[+cvs.dataset.story]));
-  const rp = $('storyReplay'); if (rp) rp.addEventListener('click', () => { closePanel(); showStory(PROLOGUE, () => {}); });
+  const play = pages => { closePanel(); showStory(pages, showSynopsis); }; // 見終わったら、あらすじに戻る
+  const rp = $('storyReplay'); if (rp) rp.addEventListener('click', () => play(PROLOGUE));
+  const all = $('storyAll'); if (all) all.addEventListener('click', () => play(PROLOGUE.concat(after)));
 }
 $('ovStory').addEventListener('click', () => storyNext(false)); // 画面のどこを押しても進む
 $('storySkip').addEventListener('click', e => { e.stopPropagation(); storyNext(true); });
