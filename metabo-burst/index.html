@@ -1077,6 +1077,111 @@ function bubble(c, s, x, y, size) {
 }
 </script>
 <script>
+// メタボリック・バースト：キャラのパーツ（SVG）
+'use strict';
+/* ================= パーツ =================
+   形の決まった細かい部品（目・メガネ・手・靴など）は SVG で描き、起動時に一度だけ画像へ焼いておく。
+   脂肪で連続して形が変わるところ（お腹・顔の輪郭）はこれまでどおりコードで描く。
+   焼き終わる前や読み込みに失敗したときは、各描画関数がコードの絵に戻す。 */
+const RIG = { parts: {}, ready: false, failed: false, scale: 8 };
+// box: [x, y, w, h]（パーツの座標で、原点が支点）、body: SVG の中身
+function definePart(name, box, body) { RIG.parts[name] = { box, body, img: null }; }
+function bakeParts() {
+  const list = Object.entries(RIG.parts);
+  if (!list.length) return Promise.resolve();
+  const s = RIG.scale;
+  return Promise.all(list.map(([name, p]) => new Promise(res => {
+    const [x, y, w, h] = p.box;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(w * s)}" height="${Math.ceil(h * s)}" viewBox="${x} ${y} ${w} ${h}">${p.body}</svg>`;
+    const im = new Image();
+    im.onload = () => {
+      // 画像のまま描くと毎回 SVG を描き直す端末があるので、canvas に写しておく
+      const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+      cv.getContext('2d').drawImage(im, 0, 0); p.img = cv; res();
+    };
+    im.onerror = () => { RIG.failed = true; console.warn('パーツを読み込めません: ' + name); res(); };
+    im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }))).then(() => { RIG.ready = !RIG.failed; });
+}
+const hasParts = () => RIG.ready;
+// パーツを (x, y) に角度 a・倍率 sx/sy で描く。sx を負にすると左右反転
+function part(c, name, x, y, a, sx, sy) {
+  const p = RIG.parts[name]; if (!p || !p.img) return;
+  const [bx, by, w, h] = p.box;
+  c.save(); c.translate(x, y); if (a) c.rotate(a); c.scale(sx == null ? 1 : sx, sy == null ? (sx == null ? 1 : Math.abs(sx)) : sy);
+  c.drawImage(p.img, bx, by, w, h);
+  c.restore();
+}
+
+</script>
+<script>
+// メタボリック・バースト：主人公のパーツ（SVG）
+// 座標は drawHead / drawPlayer と同じ単位。右側（s=1）向きで描き、左は左右反転して使う
+'use strict';
+{
+  const SKIN = COL.skin, SHADE = COL.skinShade, LINE = '#9a5a3d', FOLD = '#c98463', INK = '#1b1c1e';
+  const ln = (d, col, w, extra) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${extra || ''}/>`;
+  // 耳：支点は耳の中心
+  definePart('ear', [-5, -6.5, 10, 13],
+    `<path d="M-2.5,-4.5 C1.5,-6 4.5,-3 4.2,0.5 C4,4 1.5,6 -1.5,5 C-3,4.5 -3,-3.5 -2.5,-4.5Z" fill="${SKIN}" stroke="${LINE}" stroke-width="1"/>
+     <path d="M1,4.6 C3,3.8 4.1,2 4.2,0.5 C3.4,2.6 2.2,3.8 0.5,4.2Z" fill="${SHADE}"/>
+     ${ln('M-0.5,-2.5 C2,-3 2.8,0 2,2 C1.4,3.2 0,3.2 -0.3,2', FOLD, 0.8)}`);
+  // 目（1つぶん）：支点は目の中心
+  definePart('eye', [-3.5, -4, 7, 7.5],
+    `<ellipse cx="0" cy="0.2" rx="1.9" ry="2.3" fill="${INK}"/>
+     <circle cx="-0.6" cy="-0.6" r="0.7" fill="#fff"/><circle cx="0.7" cy="1" r="0.35" fill="#fff" opacity=".7"/>
+     ${ln('M-2.8,-1.7 Q0,-3.5 2.8,-1.7', INK, 0.9)}`);
+  definePart('eyeShut', [-3.5, -3, 7, 6], ln('M-2.6,1 Q0,-2.4 2.6,1', INK, 1.5) + ln('M2.4,0.6 L3.2,-0.2', INK, 0.8));
+  definePart('eyeStrain', [-3.5, -3.5, 7, 7], ln('M2.4,-2.2 L-2.2,0.3 L2.4,2.6', INK, 1.6));
+  definePart('eyeShock', [-3.5, -3.5, 7, 7],
+    `<circle r="2.5" fill="#fff" stroke="${INK}" stroke-width="1.2"/><circle r="0.8" fill="${INK}"/>`);
+  // 眉：支点は眉の中心。外側（+x）を細くする
+  definePart('brow', [-4.8, -2, 9.6, 4],
+    `<path d="M-3.8,0.8 Q-1,-1.5 3.9,-0.5 Q4.3,0.3 3.6,0.6 Q0,0.1 -3.4,1.4 Q-4.4,1.3 -3.8,0.8Z" fill="#2a2522"/>`);
+  // 鼻：支点は鼻先
+  definePart('nose', [-3, -3, 6, 5.5],
+    `<ellipse cx="0.5" cy="0.8" rx="1.7" ry="1.1" fill="${SHADE}" opacity=".7"/>${ln('M-0.5,-2.2 Q-1.9,1 -0.4,1.6 Q0.8,2 2,1.2', FOLD, 0.9)}`);
+  // メガネ：支点は顔の中心（左右ひとつながり）
+  const lens = (x, glint) => `<rect x="${x}" y="-4.5" width="10" height="7.5" rx="3" fill="rgba(205,228,255,.22)" stroke="#26292d" stroke-width="1.5"/>
+     <path d="M${glint},-3.4 L${glint + 2.3},-3.4 L${glint},-0.4Z" fill="#fff" opacity=".8"/>`;
+  definePart('glasses', [-14, -6, 28, 10.5],
+    lens(1.5, 3.1) + lens(-11.5, -9.9) + ln('M-1.5,-1.9 Q0,-3 1.5,-1.9', '#26292d', 1.3) + ln('M11.4,-2.6 L13.4,-3.2', '#26292d', 1.2) + ln('M-11.4,-2.6 L-13.4,-3.2', '#26292d', 1.2));
+  const shade = (x, glint) => `<rect x="${x}" y="-4.5" width="11" height="7.5" rx="2.5" fill="#101215" stroke="#000" stroke-width="1.5"/>
+     <path d="M${glint},-3.5 L${glint + 3},-3.5 L${glint + 0.5},0.5Z" fill="#a0c8ff" opacity=".55"/>`;
+  definePart('shades', [-14, -6, 28, 10.5], shade(1, 2.5) + shade(-12, -10.5) + ln('M-1,-2 L1,-2', '#000', 1.5) + ln('M12,-2.6 L13.6,-3.2', '#000', 1.2) + ln('M-12,-2.6 L-13.6,-3.2', '#000', 1.2));
+  // 口：にっこり（支点は口の上端）・開いた口（高さ3、縦に伸ばして使う）・食いしばり
+  definePart('mouthSmile', [-5.5, -1, 11, 7],
+    `<path d="M-4.5,0 Q0,0.7 4.5,0 Q4,5 0,5.2 Q-4,5 -4.5,0Z" fill="#7a2a22" stroke="#4a1a14" stroke-width="0.7"/>
+     <path d="M-2.3,3.7 Q0,2.2 2.3,3.7 Q1.5,5 0,5 Q-1.5,5 -2.3,3.7Z" fill="#e0675d"/>
+     <path d="M-3.8,0.4 L3.8,0.4 L3.3,1.4 L-3.3,1.4Z" fill="#fff"/>`);
+  definePart('mouthOpen', [-4.5, -3.8, 9, 7.6],
+    `<ellipse rx="3.6" ry="3" fill="#6a2520" stroke="#3e1410" stroke-width="0.7"/>
+     <ellipse cy="1.5" rx="2.2" ry="1.2" fill="#d65a50"/>
+     <path d="M-2.6,-2 Q0,-2.9 2.6,-2 L2.2,-1.3 Q0,-1.9 -2.2,-1.3Z" fill="#fff" opacity=".9"/>`);
+  definePart('mouthGrit', [-7, -3.5, 14, 7],
+    `<rect x="-6" y="-2.5" width="12" height="5" rx="2" fill="#fff" stroke="#3e1410" stroke-width="1"/>
+     ${ln('M-5.4,0 L5.4,0', '#b9b1a6', 0.6)}${ln('M-3,-2.4 L-3,2.4 M0,-2.5 L0,2.5 M3,-2.4 L3,2.4', '#3e1410', 0.8)}`);
+  // 横の髪：支点は髪の房の中心
+  definePart('hairSide', [-4.5, -8, 9, 16],
+    `<path d="M-1.8,-6.8 C1.8,-7 3.6,-2.5 3.2,1.5 C3,3.5 2.5,5.3 1.7,6.6 L0.7,4.7 L-0.1,6.3 L-0.9,4.2 C-2.4,1.5 -3.2,-4 -1.8,-6.8Z" fill="#45433f" stroke="#1f1e1d" stroke-width=".6"/>
+     ${ln('M-0.2,-5.4 C1.6,-2.4 2,1.2 1.4,4.4', '#77746f', 0.6)}${ln('M-1.5,-3.2 C-0.8,-0.4 -0.6,1.8 -0.7,3.6', '#77746f', 0.5)}`);
+  // 手（握りこぶし）：支点は手の中心
+  definePart('hand', [-6.5, -6.5, 13, 13],
+    `<path d="M-4.6,-3.2 C-2.5,-5.6 3,-5.6 4.8,-2.6 C6.2,0 5.4,3.8 2.4,5 C-0.6,6 -4.4,4.6 -5.2,1.6 C-5.6,-0.4 -5.4,-2.2 -4.6,-3.2Z" fill="${SKIN}" stroke="${LINE}" stroke-width="1"/>
+     <path d="M2.4,5 C5.4,3.8 6.2,0 4.8,-2.6 C5,0.8 4,3.2 1.6,4.4Z" fill="${SHADE}"/>
+     ${ln('M-1.5,-4.7 Q-1.2,-3.2 -1.6,-2 M1.5,-4.9 Q1.7,-3.4 1.3,-2.2', FOLD, 0.7)}
+     <path d="M-4.9,0.3 C-3,-0.9 0.5,-0.1 1.7,1.5 C1,2.9 -2.6,2.7 -4.7,1.8" fill="${SKIN}" stroke="${LINE}" stroke-width=".8"/>`);
+  // 革靴：支点は靴の中心
+  definePart('shoe', [-10, -6, 20, 12],
+    `<path d="M-8,1.5 C-8.5,-2.8 -4.5,-4.8 0,-4.6 C5,-4.4 8.8,-2.5 8.6,1 C8.4,3.6 5,4.6 0,4.6 C-5,4.6 -7.8,3.8 -8,1.5Z" fill="#1a1b1f" stroke="#050506" stroke-width=".8"/>
+     ${ln('M-7.6,2.5 C-5,4.3 5,4.3 8.2,2.1', '#4a3a2e', 0.9)}
+     <ellipse cx="-2.4" cy="-1.6" rx="2.8" ry="1" fill="#fff" opacity=".28"/>
+     ${ln('M-4.8,-3 C-2,-4.1 2,-4 4,-3.1', '#fff', 1.1, 'opacity=".4"')}
+     ${ln('M-0.8,-3.4 L2,-3.2 M-1,-2.3 L2.2,-2.1', '#3a3b40', 0.5)}`);
+}
+bakeParts();
+</script>
+<script>
 // メタボリック・バースト：主人公の描画
 'use strict';
 /* ================= 主人公の描画（このゲームの主役） ================= */
@@ -1108,9 +1213,10 @@ function drawPlayer(c, opt) {
     const s = L.s, lift = L.lift;
     const knee = [s * (12 + lift * 0.3), 37 - lift * 0.95], foot = [s * 11, 49 - lift * 1.15];
     limb(c, [[s * lerp(7, 12, P.fat), 24], knee, foot], lerp(9, 16, P.fat), SUIT().pants, SUIT().edge);
-    c.fillStyle = '#16171a'; ell(c, s * 12, foot[1] + 2.5, 8.5 + lift * 0.15, 4.6 + lift * 0.12); c.fill();
+    if (hasParts()) part(c, 'shoe', s * 12, foot[1] + 2.5, 0, s * (1 + lift * 0.018), 1 + lift * 0.026);
+    else { c.fillStyle = '#16171a'; ell(c, s * 12, foot[1] + 2.5, 8.5 + lift * 0.15, 4.6 + lift * 0.12); c.fill(); }
     if (lift > 4) { c.fillStyle = '#7b5a3c'; ell(c, s * 12, foot[1] + 3.5, 6.5, 2.6 + lift * 0.1); c.fill(); }
-    else { c.fillStyle = 'rgba(255,255,255,.35)'; ell(c, s * 10, foot[1] + 1, 3, 1.2); c.fill(); }
+    else if (!hasParts()) { c.fillStyle = 'rgba(255,255,255,.35)'; ell(c, s * 10, foot[1] + 1, 3, 1.2); c.fill(); }
   }
   // 腰回り
   const hw = bodyW(12, P.fat) + 2;
@@ -1193,6 +1299,7 @@ function drawArm(c, A) {
   const sleeve = suit ? SUIT().sleeve : P.noShirt ? COL.skin : COL.shirt, edge = suit ? SUIT().edge : P.noShirt ? '#c98b67' : '#8f9bb0';
   limb(c, [A.shoulder, A.elbow, A.hand], (suit ? 11.5 : 10) * (0.7 + 0.3 * P.fat), sleeve, edge);
   if (suit) { c.fillStyle = COL.shirt; circ(c, A.hand[0] * 0.92 + A.elbow[0] * 0.08, A.hand[1] * 0.92 + A.elbow[1] * 0.08, 5.4); c.fill(); }
+  if (hasParts()) return part(c, 'hand', A.hand[0], A.hand[1], 0, A.s);
   c.fillStyle = COL.skin; c.strokeStyle = '#c98b67'; c.lineWidth = 1.2;
   circ(c, A.hand[0], A.hand[1], 5.4); c.fill(); c.stroke();
 }
@@ -1346,10 +1453,17 @@ function drawHead(c, B, a, t, opt) {
   c.save(); c.translate(P.b.ox * 0.15, hy);
   if (P.charging) c.rotate(Math.sin(t * 50) * 0.02 * P.pullAmt);
   c.fillStyle = COL.skin; ell(c, 0, 16, 9, 6); c.fill();
-  c.strokeStyle = '#c98b67'; c.lineWidth = 1.2;
+  const R = hasParts(); // パーツの絵が使えるときは目・メガネ・口などを差し替える
+  c.strokeStyle = R ? '#9a5a3d' : '#c98b67'; c.lineWidth = 1.2;
   const fr = lerp(12.5, 18, P.fat);
-  for (const s of [-1, 1]) { circ(c, s * (fr - 0.5), 1, 4.2); c.fill(); c.stroke(); }
-  c.fillStyle = COL.skin; ell(c, 0, 0, fr, 16.5); c.fill(); c.stroke();
+  for (const s of [-1, 1]) { if (R) part(c, 'ear', s * (fr - 0.5), 1, 0, s); else { circ(c, s * (fr - 0.5), 1, 4.2); c.fill(); c.stroke(); } }
+  c.fillStyle = COL.skin; ell(c, 0, 0, fr, 16.5); c.fill();
+  if (R) { // 右下に影を1段入れる
+    c.save(); ell(c, 0, 0, fr, 16.5); c.clip();
+    c.fillStyle = 'rgba(226,160,124,.8)'; ell(c, -fr * 0.36, -4, fr * 1.06, 17.6); c.rect(fr + 2, -20, -fr * 2 - 4, 40); c.fill('evenodd');
+    c.restore(); ell(c, 0, 0, fr, 16.5);
+  }
+  c.stroke();
   if (P.fat > 0.35) { // 二重あご
     ell(c, 0, 8, fr - 2, 8.5 * P.fat); c.fill();
     c.strokeStyle = 'rgba(180,110,80,.6)'; c.beginPath(); c.arc(0, 11, 9, 0.35, Math.PI - 0.35); c.stroke();
@@ -1365,7 +1479,7 @@ function drawHead(c, B, a, t, opt) {
   else {
     // 横の髪
     c.fillStyle = '#3c3b3a';
-    for (const s of [-1, 1]) { ell(c, s * (fr - 2.5), -4, 3.4, 6.5, s * 0.2); c.fill(); }
+    for (const s of [-1, 1]) { if (R) part(c, 'hairSide', s * (fr - 2.2), -4, s * 0.2, s * 0.85); else { ell(c, s * (fr - 2.5), -4, 3.4, 6.5, s * 0.2); c.fill(); } }
     // 頭頂ハイライト
     c.fillStyle = 'rgba(255,255,255,.55)'; ell(c, -5, -11, 6, 3, -0.3); c.fill();
     // バーコード
@@ -1374,12 +1488,13 @@ function drawHead(c, B, a, t, opt) {
       const lift = (3 + 5 * speed) * (0.5 + 0.5 * Math.sin(t * 15 + i * 0.9)) + i;
       c.beginPath(); c.moveTo(-15, -6 - i * 1.6);
       c.quadraticCurveTo(-2, -20 - i * 1.4 - lift * 0.4, 9 + i, -14 - lift);
+      if (R) { c.lineWidth = 1.7; c.strokeStyle = '#1f1e1d'; c.stroke(); c.lineWidth = 0.6; c.strokeStyle = '#6d6b68'; }
       c.stroke();
     }
   }
   if (head === 'band') drawBand(c, fr, t, speed);
   // メガネ（サングラスは目の上に描くので後で）
-  if (head !== 'shades') {
+  if (head !== 'shades' && !R) {
     c.strokeStyle = '#26292d'; c.lineWidth = 1.5;
     for (const s of [-1, 1]) { rr(c, s * 6.5 - 5, -4.5, 10, 7.5, 3); c.stroke(); }
     line(c, -1.5, -1.5, 1.5, -1.5);
@@ -1387,6 +1502,8 @@ function drawHead(c, B, a, t, opt) {
   }
   // 目・眉
   const mood = opt.dead ? 4 : a >= 5 ? 0 : a >= 3 ? 1 : a === 2 ? 2 : 3;
+  if (R) drawFaceParts(c, mood, head, opt);
+  else {
   c.fillStyle = '#1b1c1e'; c.strokeStyle = '#1b1c1e'; c.lineWidth = 1.6;
   if (mood === 4 || opt.shock) { for (const s of [-1, 1]) { circ(c, s * 6.5, -1, 2.4); c.stroke(); circ(c, s * 6.5, -1, 0.7); c.fill(); } }
   else if (P.charging) { for (const s of [-1, 1]) { line(c, s * 9, -3, s * 4, -0.5); line(c, s * 4, -0.5, s * 9, 1.5); } }
@@ -1401,8 +1518,10 @@ function drawHead(c, B, a, t, opt) {
     line(c, -1, -2, 1, -2);
     c.fillStyle = 'rgba(160,200,255,.5)'; for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 6.5 - 4, -3.5); c.lineTo(s * 6.5 - 1, -3.5); c.lineTo(s * 6.5 - 3.5, 0.5); c.closePath(); c.fill(); }
   }
+  }
   // 口
-  if (P.charging) {
+  if (R) drawMouth(c, mood, ph, opt);
+  else if (P.charging) {
     c.fillStyle = '#fff'; rr(c, -6, 6, 12, 5, 2); c.fill(); c.strokeStyle = '#1b1c1e'; c.lineWidth = 1; c.stroke();
     for (let k = -1; k <= 1; k++) line(c, k * 3, 6, k * 3, 11);
   } else if (mood === 0 && !opt.dead) {
@@ -1420,6 +1539,21 @@ function drawHead(c, B, a, t, opt) {
     for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 6.5, 2); c.quadraticCurveTo(s * 8, 10, s * 6 + Math.sin(t * 9 + s) * 2, 18); c.stroke(); }
   }
   c.restore();
+}
+// パーツの絵で描く顔（目・眉・鼻・メガネ）。座標と表情の段階はコードの絵と同じ
+function drawFaceParts(c, mood, head, opt) {
+  const eye = mood === 4 || opt.shock ? 'eyeShock' : P.charging ? 'eyeStrain' : mood === 3 ? 'eyeShut' : 'eye';
+  for (const s of [-1, 1]) part(c, eye, s * 6.5, eye === 'eye' ? -0.8 : eye === 'eyeShut' ? -0.6 : -1, 0, s);
+  part(c, 'nose', 0.3, 3.4);
+  if (head === 'shades') part(c, 'shades', 0, 0); else part(c, 'glasses', 0, 0);
+  const brow = [0.05, 0.25, 0.5, 0.65, 0.7][mood];
+  for (const s of [-1, 1]) part(c, 'brow', s * 6.5, -8, -s * brow, s);
+}
+function drawMouth(c, mood, ph, opt) {
+  if (P.charging) return part(c, 'mouthGrit', 0, 8.5);
+  if (mood === 0 && !opt.dead) return part(c, 'mouthSmile', 0, 6.3);
+  const open = 1.8 + Math.abs(Math.sin(ph * 2)) * 2.2 + (mood >= 3 ? 1.5 : 0) + (opt.dead ? 3 : 0);
+  part(c, 'mouthOpen', 0, 8, 0, (3.6 + (opt.dead ? 2 : 0)) / 3.6, open / 3);
 }
 // ふさふさカツラ：七三分け。走ると風で浮く
 function drawWig(c, fr, t) {
