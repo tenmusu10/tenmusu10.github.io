@@ -106,6 +106,12 @@ body{
 /* メニュー・パネル */
 .menu{display:flex;flex-wrap:wrap;justify-content:center;gap:1.4cqw;max-width:92cqw}
 .mbtn{font-family:var(--f-body);font-weight:700;font-size:3.3cqw;color:var(--paper);background:rgba(255,255,255,.1);border:.3cqw solid rgba(255,255,255,.3);border-radius:5cqw;padding:1.3cqw 3cqw;cursor:pointer}
+.mmain{display:flex;gap:1.6cqw;justify-content:center;flex-basis:100%;margin-bottom:.6cqw}
+.mbig{flex:1;max-width:28cqw;font-family:var(--f-display);font-size:3.8cqw;letter-spacing:.04em;color:var(--paper);background:rgba(16,20,23,.8);border:.4cqw solid rgba(255,255,255,.55);border-radius:1.4cqw;padding:2.4cqw 1cqw;cursor:pointer}
+.mbig:active{transform:translateY(.5cqw)}
+.mbig:focus-visible{outline:.6cqw solid var(--memo);outline-offset:.5cqw}
+.mmore{display:flex;flex-wrap:wrap;justify-content:center;gap:1.4cqw;flex-basis:100%}
+.mmore[hidden]{display:none}
 .mbtn:focus-visible,.adbtn:focus-visible,.cos:focus-visible{outline:.6cqw solid var(--memo);outline-offset:.5cqw}
 .ov.panel{justify-content:flex-start;gap:2.4cqw;padding-top:9cqw;background:rgba(16,20,23,.98)}
 .pbody .memo{transform:none;margin-top:2cqw}
@@ -271,16 +277,22 @@ body{
         <button id="endlessBtn" class="ura endless" type="button">エンドレス残業<small>3面を周回・<wbr>周るほど高得点</small></button>
         <p id="modesLock" class="modelock" hidden>🔒 通常モードを突破すると解放</p>
       </div>
+      <!-- よく使うものは大きく、たまに使うものは「その他」を開くと出る -->
       <nav class="menu" aria-label="メニュー">
-        <button type="button" class="mbtn" id="mHow">遊び方</button>
-        <button type="button" class="mbtn" id="mStory">あらすじ</button>
-        <button type="button" class="mbtn" id="mDaily">今日のお題</button>
-        <button type="button" class="mbtn" id="mBoss">ボスモード</button>
+        <div class="mmain">
+          <button type="button" class="mbig" id="mDaily">今日のお題</button>
+          <button type="button" class="mbig" id="mBoss">ボスモード</button>
+          <button type="button" class="mbig" id="mCos">着せ替え</button>
+        </div>
         <button type="button" class="mbtn" id="mRank">ランキング</button>
         <button type="button" class="mbtn" id="mAch">実績</button>
-        <button type="button" class="mbtn" id="mTips">tips集</button>
-        <button type="button" class="mbtn" id="mCos">着せ替え</button>
-        <button type="button" class="mbtn" id="mSet">設定</button>
+        <button type="button" class="mbtn" id="mMore" aria-expanded="false" aria-controls="moreMenu">その他 ▾</button>
+        <div id="moreMenu" class="mmore" hidden>
+          <button type="button" class="mbtn" id="mHow">遊び方</button>
+          <button type="button" class="mbtn" id="mStory">あらすじ</button>
+          <button type="button" class="mbtn" id="mTips">tips集</button>
+          <button type="button" class="mbtn" id="mSet">設定</button>
+        </div>
       </nav>
       <div id="testRow" class="test" role="group" aria-label="テスト用ステージ選択">
         <span>テスト：</span>
@@ -3883,6 +3895,7 @@ function updateBestLine() {
   $('contRow').hidden = cs < 1;
   $('contSub').textContent = `${STAGES[cs].name}から・記録なし`;
   updateModeLocks();
+  setMoreMenu(false); // タイトルに戻るたびに「その他」は閉じる
 }
 
 function step(dt, rdt) {
@@ -5040,6 +5053,8 @@ const endClock = $('endClock'), endMsg = $('endMsg'), endStats = $('endStats'), 
 const pauseBtn = $('pauseBtn'), retryBtn = $('retryBtn'), nextBtn = $('nextBtn'), againBtn = $('againBtn'), resumeBtn = $('resumeBtn');
 $('startBtn').addEventListener('click', () => { auInit(); startWithStory(); });
 $('mHow').addEventListener('click', showHow);
+function setMoreMenu(open) { $('moreMenu').hidden = !open; $('mMore').setAttribute('aria-expanded', open); $('mMore').textContent = open ? 'その他 ▴' : 'その他 ▾'; }
+$('mMore').addEventListener('click', () => setMoreMenu($('moreMenu').hidden));
 $('tutSkip').addEventListener('click', () => endTut(false));
 $('tutNext').addEventListener('click', () => { $('tutNext').blur(); if (G.tut && G.tut.wait) nextTutStep(); }); // フォーカスを残すと Space で押されてしまう
 $('tutNever').addEventListener('click', () => { endTut(false, true); toast('チュートリアルは設定からまた表示できます'); });
