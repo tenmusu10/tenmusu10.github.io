@@ -149,6 +149,7 @@ body{
 .adtag{position:absolute;left:-1.2cqw;top:-1.6cqw;font-family:var(--f-pixel);font-size:2.4cqw;color:#fff;background:var(--ink);border-radius:.8cqw;padding:.3cqw 1.2cqw}
 .toast{position:absolute;left:50%;top:calc(3cqw + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:5;padding:2cqw 4cqw;border-radius:6cqw;background:rgba(16,20,23,.92);border:.4cqw solid var(--memo);color:var(--memo);font-weight:900;font-size:3.6cqw;white-space:nowrap;pointer-events:none}
 .toast.show{animation:toast 2.4s ease both}
+.toast.inplay{top:calc(16cqw + env(safe-area-inset-top,0px))}
 #ovPanel:not([hidden]) ~ .toast{top:auto;bottom:calc(6cqw + env(safe-area-inset-bottom,0px))} /* パネルの見出しに重ねない */
 @keyframes toast{0%{opacity:0;transform:translate(-50%,-4cqw)}10%,85%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-2cqw)}}
 .tut{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(84cqw,100%);z-index:1;pointer-events:none;
@@ -379,7 +380,7 @@ body{
           <li><b>スワイプ</b>で<wbr>上下左右に<wbr>移動。<wbr>当たり判定は<wbr><b>お腹</b>で、<wbr>見た目より<wbr>ちょっと<wbr>小さめ。</li>
           <li><b>赤く光る・<wbr>赤い点線</b>は<wbr>障害物。<wbr>当たると<wbr>残業確定。<wbr><b style="color:#146b38">緑に光る＋1</b>は<wbr>食べ物。</li>
           <li>右下の<wbr><b>「撃つ」</b>で<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>移動中は<wbr>もう1本の<wbr>指で<wbr>タップすると<wbr>発射、<wbr>下に<wbr>引っ張ると<wbr>狙い撃ち。</li>
-          <li>当たっても<wbr><b>残機</b>が<wbr>あれば<wbr>その場で<wbr>立て直せる<wbr>（最初は2つ・<wbr>再挑戦で<wbr>満タン）。</li>
+          <li>当たっても<wbr><b>残機</b>が<wbr>あれば<wbr>その場で<wbr>立て直せる<wbr>（最初は2つ・<wbr>再挑戦では<wbr>そのフロアに<wbr>入ったときの数<wbr>・最低1）。</li>
           <li>撃つほど<wbr>痩せて<wbr>当たり判定が<wbr>小さくなる。<wbr>でも<wbr>脂肪<b>0</b>のまま<wbr>2秒<wbr>たつと<wbr>ガリガリに<wbr>燃え尽きる。<wbr>すぐ<wbr>食べれば<wbr>助かる。</li>
           <li>太っているほど<wbr>スコアが伸びる。<wbr>食べて回復：<wbr>おにぎり／<wbr>からあげは<wbr>貫通弾／<wbr>マシマシラーメンは<wbr>全回復。</li>
           <li><b>栄養ドリンク</b>は<wbr>1本まで<wbr>持てる。<wbr>右下の<wbr><b>「無敵」</b>で<wbr>好きなときに<wbr>6秒間無敵。<wbr>障害物に<wbr>体当たりで<wbr>粉砕。<wbr>ボスへの<wbr>体当たりは<wbr>1本で2回まで。</li>
@@ -440,7 +441,7 @@ const TH = () => THEMES[STAGES[G.stage].theme];
 // 難易度：裏モードは弾幕の密度・速さ・ボスの硬さを引き上げる
 const DIFFS = {
   normal: { density: 1, shot: 1, stampN: 0, fanN: 0, spread: 1.35, ringGap: 0.7, ringN: 0, rain: 1, bossHP: 1, open: 1, gap: 1, item: 1, drink: 1, dash: 1, buchoHP: 3, warn: 0.9, car: 560, gateGap: 150, gateSpd: 1.3 },
-  ura: { density: 1.7, shot: 1.25, stampN: 1, fanN: 3, spread: 1.2, ringGap: 0.5, ringN: 5, rain: 1.5, bossHP: 1.3, open: 0.75, gap: 0.55, item: 1.3, drink: 1.4, dash: 1.1, buchoHP: 4, warn: 0.75, car: 650, gateGap: 140, gateSpd: 1.7 },
+  ura: { density: 1.7, shot: 1.25, stampN: 1, fanN: 3, spread: 1.2, ringGap: 0.5, ringN: 5, rain: 1.5, bossHP: 1.15, open: 0.75, gap: 0.55, item: 1.3, drink: 1.4, dash: 1.1, buchoHP: 4, warn: 0.75, car: 650, gateGap: 140, gateSpd: 1.7 },
 };
 function D() {
   const base = G.ura ? DIFFS.ura : DIFFS.normal;
@@ -454,7 +455,7 @@ function D() {
   return G.dailyDiff || (G.dailyDiff = Object.assign({}, base, { item: base.item * (m === 'food2' ? 0.5 : 1), shot: base.shot * (m === 'fast' ? 1.2 : 1), drink: m === 'nodrink' ? 999 : base.drink }));
 }
 const BOSSES = {
-  senmu: { name: '専務取締役', who: '酒井 呑兵衛', read: 'さかい のんべえ', epi: '終電を許さぬ 飲み屋街の主', hp: 18, faceR: 24, faceY: -54, attacks: ['stamp3', 'fixed', 'gulp', 'rain', 'bounce', 'summon', 'gulp', 'dash', 'ring', 'bounce', 'dash'] }, // gulp：専務だけの一気飲み
+  senmu: { name: '専務取締役', who: '酒井 呑兵衛', read: 'さかい のんべえ', epi: '終電を許さぬ 飲み屋街の主', hp: 15, faceR: 24, faceY: -54, attacks: ['stamp3', 'fixed', 'gulp', 'rain', 'bounce', 'summon', 'gulp', 'dash', 'ring', 'bounce', 'dash'] }, // gulp：専務だけの一気飲み
   shacho: { name: '代表取締役社長', who: '鬼瓦 権蔵', read: 'おにがわら ごんぞう', epi: '創業以来 定時退社ゼロの男', hp: 15, faceR: 25, faceY: -50, attacks: ['stamp3', 'fixed', 'rain', 'summon', 'ring', 'fixed'] },
   client: { name: '超大口クライアント', who: '無理田 言造', read: 'むりた いうぞう', epi: '納期前日に 仕様を変える者', hp: 12, faceR: 23, faceY: -60, attacks: ['spec', 'fixed', 'phone', 'dash', 'rain', 'fixed', 'dash', 'phone'] },
 };
@@ -2788,7 +2789,7 @@ function startBoss() {
   G.bossPhase = true; G.queue = [];
   for (const e of G.ents) if (e.type !== 'item') { e.dead = true; if (e.harm || e.solid || e.shot) { burst(e.x, e.y, 8); sparks(e.x, e.y, 6); } }
   G.flash = 0.4; G.flashCol = '#f4d64e'; G.banner = null;
-  G.boss = { kind: key, def, x: W / 2, y: -170, ty: 205, hp: Math.round(def.hp * D().bossHP), maxHp: Math.round(def.hp * D().bossHP), t: 0, state: 'warn', warnT: 2.6, atkT: 1.8, atk: 0, guard: 1, openT: 0, hurt: 0, cast: 0, dash: null, rot: 0, ko: 0, wasOpen: false };
+  G.boss = { kind: key, def, x: W / 2, y: -170, ty: 205, hp: Math.round(def.hp * D().bossHP), maxHp: Math.round(def.hp * D().bossHP), t: 0, state: 'warn', warnT: 2.6, atkT: 1.8, atk: 0, guard: 1, openT: 0, hurt: 0, cast: 0, dash: null, rot: 0, ko: 0, wasOpen: false, miss0: G.stats.miss || 0 };
   sfx('siren'); Haptic.tap('warn'); G.itemT = 5;
 }
 function bossAttack(b) {
@@ -2889,7 +2890,7 @@ function gulpUpdate(b, dt) {
   b.x += (W / 2 - b.x) * Math.min(1, dt * 2);
   if (g.t < g.dur) return;
   b.gulp = null; b.atkT = 0.7 * D().gap; // 飲み干した：体力が戻る
-  const heal = Math.min(2, b.maxHp - b.hp); b.hp += heal;
+  const heal = Math.min(1, b.maxHp - b.hp); b.hp += heal;
   text('プハーッ！おかわり！' + (heal ? `（体力+${heal}）` : ''), b.x, b.y + 80, 17, '#ffe27a'); sfx('boyon');
 }
 // 一気飲み中のジョッキに当たった：むせて長いスキ
@@ -2900,7 +2901,10 @@ function gulpChoke(b) {
   addScore(3000); G.shake = 12; G.hitstop = 0.06; sfx('bosshit'); Haptic.tap('medium');
 }
 function bossKO() {
-  const b = G.boss; if (b.order) endOrder(b, true); b.state = 'ko'; b.ko = 0; b.dash = null; G.queue = [];
+  const b = G.boss; if (b.order) endOrder(b, true);
+  if (b.broke === ORDERS[b.kind].length) unlock('allorder');
+  if ((G.stats.miss || 0) === b.miss0) unlock('nomiss_' + b.kind);
+  b.state = 'ko'; b.ko = 0; b.dash = null; G.queue = [];
   for (const e of G.ents) if (e.harm) { burst(e.x, e.y, 10); e.dead = true; }
   G.shake = 20; G.hitstop = 0.35; G.flash = 0.9; G.flashCol = '#fff';
   text({ shacho: 'ぐわあぁぁ！！', client: '…持ち帰って検討しますぅ！', senmu: 'ヒック…もう飲めましぇん…' }[b.kind], b.x, b.y - 40, 20, '#fff');
@@ -2923,7 +2927,7 @@ function orderBonus(s) { return Math.round(lerp(20000, 5000, clamp(s.t / ORDER_D
 function endOrder(b, broke) {
   const s = b.order; b.order = null; b.atkT = 1.6;
   for (const e of G.ents) if (e.shot) { e.dead = true; sparks(e.x, e.y, 2, '#ffe27a'); }
-  if (broke && !s.drinkUsed) { const v = orderBonus(s); addScore(v); unlock('order'); text('命令却下!!', W / 2, 250, 28, COL.hanko, { font: F.dg(28), life: 2, max: 2, vy: -12 }); text('却下ボーナス +' + fmt(v * modeMult()), W / 2, 284, 18, '#fff', { font: F.dg(18), life: 2, max: 2, vy: -12 }); sfx('clear'); }
+  if (broke && !s.drinkUsed) { b.broke = (b.broke || 0) + 1; const v = orderBonus(s); addScore(v); unlock('order'); text('命令却下!!', W / 2, 250, 28, COL.hanko, { font: F.dg(28), life: 2, max: 2, vy: -12 }); text('却下ボーナス +' + fmt(v * modeMult()), W / 2, 284, 18, '#fff', { font: F.dg(18), life: 2, max: 2, vy: -12 }); sfx('clear'); }
   else if (broke) text('却下（ドリンク使用でボーナスなし）', W / 2, 260, 15, '#fff', { life: 1.8, max: 1.8 });
   else { text('時間切れ…命令に従いました', W / 2, 260, 17, '#cfd6d2', { life: 1.8, max: 1.8 }); b.y = b.ty; }
 }
@@ -3677,7 +3681,9 @@ function drawDeath(c) {
   if (u <= 0) return;
   const sc = u < 1 ? lerp(3.2, 1, easeOut(u)) : 1 + Math.max(0, 0.06 - (d.t - slamAt) * 0.3);
   c.save(); c.fillStyle = `rgba(16,20,23,${clamp(u, 0, 1) * 0.35})`; c.fillRect(0, 0, W, H); c.restore();
-  c.save(); c.translate(W / 2, 300); c.rotate(-0.12); c.scale(sc, sc); c.globalAlpha = clamp(u * 1.5, 0, 1);
+  // 結果パネルが出たら、見出しに重ならないよう判子を上へ逃がす（低い画面ほど上がる）
+  const sy = d.stampTo == null ? 300 : (d.stampY = lerp(d.stampY || 300, d.stampTo, 0.2));
+  c.save(); c.translate(W / 2, sy); c.rotate(-0.12); c.scale(sc, sc); c.globalAlpha = clamp(u * 1.5, 0, 1);
   c.strokeStyle = COL.hanko; c.fillStyle = COL.hanko;
   if (d.type === 'caught') {
     c.fillStyle = 'rgba(255,248,240,.9)'; rr(c, -96, -96, 192, 192, 18); c.fill();
@@ -3690,6 +3696,12 @@ function drawDeath(c) {
   }
   c.restore();
 }
+// 判子（半分の高さ約105）がパネルの見出しにかからない y。画面座標からゲーム座標に直す
+function stampYFor(el) {
+  const r = cv.getBoundingClientRect(), t = el.getBoundingClientRect().top;
+  if (!r.height || !t) return 300;
+  return clamp((t - r.top) / r.height * H - 120, 125, 300);
+}
 function showOver() {
   const d = G.death, st = STAGES[G.stage];
   ovCause.innerHTML = '<span style="color:var(--hanko);font-family:var(--f-display);font-weight:400">' + (d.type === 'starve' ? '体脂肪率 0%' : '社会的に死亡') + '</span><br>' + (d.type === 'starve' ? CAUSE.starve : (CAUSE[d.by] || CAUSE.pile));
@@ -3698,6 +3710,7 @@ function showOver() {
   ovStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>到達</dt><dd>${st.name}　${remain}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd>`;
   retryBtn.textContent = G.endless ? '1周目から再挑戦' : G.rush ? '1体目から再挑戦' : G.bossMode ? 'もう一度ボスに挑む' : 'このフロアから再挑戦';
   resetShare(); ovOver.hidden = false;
+  d.stampTo = stampYFor(ovCause);
   retryBtn.focus({ preventScroll: true });
 }
 function stageClear() {
@@ -3707,6 +3720,7 @@ function stageClear() {
   if (!G.bossMode) { // ボスモードは道中がないので、ステージクリアの実績は対象外
     if (ammo() === 6) unlock('heavy');
     if (ammo() <= 1) unlock('skinny');
+    if (G.ura && G.stage < 2) unlock('ura' + (G.stage + 1)); // STAGE 3 は全面突破の「裏の帰宅者」
   }
   const b = G.best || { stage: 0, pct: 0, clears: 0 };
   unlockBoss(st.boss);
@@ -3750,6 +3764,7 @@ function bossModeClear(st, shown) {
 function rushClear(shown) {
   const R = G.rush; R.splits.push(G.play - (G.bossStart || 0));
   if (R.i < STAGES.length - 1) { setTimeout(nextRushBoss, 1100); return; }
+  unlock('rush');
   const sec = R.splits.reduce((a, b) => a + b, 0), prev = META.bossBest.rush, best = recordBossTime('rush', sec);
   setTimeout(() => {
     clearKicker.textContent = 'ボスラッシュ'; $('clearBig').textContent = `${STAGES.length}連戦 突破`;
@@ -3769,8 +3784,8 @@ function startStage(i, freshAmmo) {
   G.parts = []; G.texts = []; G.bossIntro = null; G.notice = null; G.cutin = null;
   G.tut = null; $('tutCard').hidden = true; G.stageScore = G.score || 0; G.combo = 0; G.comboT = 0; G.invSmash = 0; G.bossBumpT = 0; G.bossSlams = 0; G.midDone = false;
   resetPlayer(!!freshAmmo);
-  // 残機は1回のプレイで持ち越す。同じフロアの再挑戦では、そのフロアに入ったときの数に戻す（満タンにはしない）
-  if (G.livesAt && G.livesAt.run === G.runId && G.livesAt.stage === i) G.lives = G.livesAt.lives;
+  // 残機は1回のプレイで持ち越す。同じフロアの再挑戦では、そのフロアに入ったときの数に戻す（満タンにはしないが、最低1は残す）
+  if (G.livesAt && G.livesAt.run === G.runId && G.livesAt.stage === i) G.lives = Math.max(1, G.livesAt.lives);
   else G.livesAt = { run: G.runId, stage: i, lives: G.lives };
   P.noShirt = false;
   G.mode = 'play';
@@ -4288,6 +4303,14 @@ const ACHS = [
   { id: 'daily', name: '日課', desc: '今日のお題をクリア' },
   { id: 'order', name: '命令却下', desc: 'ドリンクを使わずにボスの業務命令を却下する' },
   { id: 'loop2', name: '終わらない残業', desc: 'エンドレス残業で2周目に入る' },
+  // 長く遊ぶ人向け（ボスモード・ボスラッシュでも取れる）
+  { id: 'nomiss_shacho', name: '定時の勝者', desc: '社長戦をミスなしで撃破' },
+  { id: 'nomiss_client', name: '仕様凍結', desc: 'クライアント戦をミスなしで撃破' },
+  { id: 'nomiss_senmu', name: '素面の勝利', desc: '専務戦をミスなしで撃破' },
+  { id: 'allorder', name: '全件却下', desc: '1回のボス戦で業務命令をドリンクなしで全部却下' },
+  { id: 'ura1', name: '裏の一歩', desc: '裏モードでSTAGE 1を突破' },
+  { id: 'ura2', name: '裏の常連', desc: '裏モードでSTAGE 2を突破' },
+  { id: 'rush', name: '三連勤', desc: 'ボスラッシュを突破' },
 ];
 function unlock(id) {
   if (G.test || META.ach[id]) return;
@@ -4307,6 +4330,10 @@ const SUITS = {
   white: { name: 'バブル白スーツ', dark: '#a8a397', mid: '#e6e4dc', hi: '#f4f3ed', lapel: '#ffffff', sleeve: '#dcd9cf', edge: '#7c786c', pants: '#d4d1c7', cond: 'score100k' },
   pink: { name: 'ピンクスーツ', dark: '#6e2442', mid: '#c25780', hi: '#cf668f', lapel: '#e286aa', sleeve: '#ad4a72', edge: '#441527', pants: '#933a5e', cond: 'ura' },
   black: { name: 'リクルートスーツ', dark: '#0e0f12', mid: '#1f2126', hi: '#2a2d33', lapel: '#33363d', sleeve: '#1a1c20', edge: '#050608', pants: '#17181c', cond: 'burn' },
+  wine: { name: 'ワインレッド', dark: '#3b1119', mid: '#6e2232', hi: '#7c2a3c', lapel: '#8f3648', sleeve: '#5c1c2a', edge: '#250a10', pants: '#4f1823', cond: 'nomiss_senmu' },
+  royal: { name: '社長室パープル', dark: '#2a1d3d', mid: '#4d3870', hi: '#59427f', lapel: '#6a5194', sleeve: '#40305e', edge: '#1a1226', pants: '#3a2b55', cond: 'nomiss_shacho' },
+  sky: { name: 'クールビズ水色', dark: '#2f5068', mid: '#5f8fb0', hi: '#6c9cbd', lapel: '#82afcc', sleeve: '#517d9b', edge: '#1f3647', pants: '#476f8b', cond: 'nomiss_client' },
+  gold: { name: '金ラメスーツ', dark: '#6a4a10', mid: '#b8862a', hi: '#c99634', lapel: '#ddb04c', sleeve: '#9e7322', edge: '#43300a', pants: '#8f6720', stripe: 'rgba(255,244,200,.35)', cond: 'rush' },
   pin: { name: '勝負のストライプ', dark: '#141a2b', mid: '#2a3352', hi: '#334068', lapel: '#3b4875', sleeve: '#232b45', edge: '#0b0f1a', pants: '#1f2740', stripe: 'rgba(230,236,255,.4)', cond: 'order' },
 };
 const TIES = {
@@ -4316,6 +4343,9 @@ const TIES = {
   gold: { name: '金のネクタイ', col: '#d9a521', edge: '#8a6410', stripe: 'rgba(255,255,255,.6)', cond: 'ad' },
   dot: { name: '水玉ネクタイ', col: '#1f5fa8', edge: '#0f3360', pat: 'dot', stripe: 'rgba(255,255,255,.85)', cond: 'catch' },
   naruto: { name: 'なると柄', col: '#f4efe4', edge: '#b8ab92', pat: 'naruto', stripe: '#e0457b', cond: 'ramen' },
+  black: { name: '黒無地', col: '#18191c', edge: '#050506', stripe: 'rgba(255,255,255,.12)', cond: 'allorder' },
+  orange: { name: '夕焼けストライプ', col: '#d9662a', edge: '#7f3512', stripe: 'rgba(255,240,200,.55)', cond: 'ura1' },
+  purple: { name: '裏紫ストライプ', col: '#5a2f86', edge: '#2e1547', stripe: 'rgba(255,190,230,.5)', cond: 'ura2' },
   bow: { name: '蝶ネクタイ', col: '#a3172b', edge: '#5c0b17', shape: 'bow', cond: 'loop2' },
 };
 // 頭の小物。sw は着せ替え画面の色見本
@@ -4343,8 +4373,11 @@ const MODS = [
 function dailyInfo() {
   const d = new Date(), key = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
   const h = Math.imul(key, 2654435761) >>> 0;
-  return { key, stage: h % 3, ura: (h >>> 3) % 3 === 0, mod: MODS[(h >>> 5) % MODS.length], label: `${d.getMonth() + 1}月${d.getDate()}日` };
+  // 裏の日でも、通常モードを1回クリアするまでは通常に置き換える（初見で裏は難しすぎる）
+  const uraDay = (h >>> 3) % 3 === 0, ura = uraDay && normalCleared();
+  return { key, stage: h % 3, ura, uraHeld: uraDay && !ura, mod: MODS[(h >>> 5) % MODS.length], label: `${d.getMonth() + 1}月${d.getDate()}日` };
 }
+function normalCleared() { const b = G.best || {}; return !!(b.clears || META.ach.clear); }
 const NATIVE_RANDOM = Math.random;
 function seeded(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function startDaily() {
@@ -4439,7 +4472,7 @@ function showDaily() {
   openPanel('今日のお題', `
     <p class="pdate">${info.label}</p>
     <dl class="stats"><dt>ステージ</dt><dd>${STAGES[info.stage].name}　${STAGES[info.stage].place}</dd>
-    <dt>モード</dt><dd>${info.ura ? '裏モード' : '通常'}</dd><dt>条件</dt><dd>${info.mod.name}</dd>
+    <dt>モード</dt><dd>${info.ura ? '裏モード' : info.uraHeld ? '通常（本来は裏。通常モードを1回クリアすると裏になります）' : '通常'}</dd><dt>条件</dt><dd>${info.mod.name}</dd>
     <dt>今日の最高</dt><dd>${best ? fmt(best) : '―'}</dd></dl>
     <p class="pnote">敵の出かたは今日一日同じ。1ステージを突破すればクリア。</p>
     <button id="dailyGo" class="btn" type="button">お題に挑む</button>`);
@@ -4616,8 +4649,14 @@ function showCredits() {
 let toastQ = [], toastOn = false;
 function toast(msg) { toastQ.push(msg); if (!toastOn) nextToast(); }
 function nextToast() {
-  const el = $('toast'), m = toastQ.shift(); if (!m) { toastOn = false; return; }
-  toastOn = true; el.textContent = m; el.hidden = false; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  const el = $('toast');
+  if (!toastQ.length) { toastOn = false; return; }
+  toastOn = true;
+  // ボス戦中は上部の命令名・残り秒を隠さないよう、終わるまでためておく
+  if (G.mode === 'play' && G.bossPhase) { setTimeout(nextToast, 500); return; }
+  const m = toastQ.shift();
+  el.classList.toggle('inplay', G.mode === 'play'); // 道中はスコア表示の下に出す
+  el.textContent = m; el.hidden = false; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   sfx('pick'); setTimeout(() => { el.hidden = true; nextToast(); }, 2400);
 }
 </script>
