@@ -277,7 +277,7 @@ body{
       <button id="startBtn" class="card" type="button"><span class="l">退勤を打刻</span><span class="r">定時<strong>18:00</strong></span></button>
       <div id="contRow" class="modes" hidden>
         <button id="contBtn" class="cont" type="button">つづきから<small id="contSub"></small></button>
-        <button id="contAdBtn" class="adbtn small" type="button"><span class="adtag">広告</span>残機+1で始める</button>
+        <button id="contAdBtn" class="adbtn small" type="button"><span class="adtag">広告</span>残機+1で始める<small>残機3でつづきから</small></button>
       </div>
       <div class="modes">
         <button id="uraBtn" class="ura" type="button">裏モード突入<small>敵1.7倍・<wbr>弾速UP・<wbr>ボス強化</small></button>
@@ -332,8 +332,7 @@ body{
         <button id="overTitleBtn" class="ghost" type="button">タイトルへ</button>
       </div>
       <div class="row">
-        <button id="retryDrinkBtn" class="adbtn small" type="button"><span class="adtag">広告</span>ドリンク付きで再挑戦</button>
-        <button id="cosOver" class="adbtn small dbl" type="button"><span class="adtag">広告</span>着せ替えを1つ解放</button>
+        <button id="retryDrinkBtn" class="adbtn small" type="button"><span class="adtag">広告</span>ドリンク付きで再挑戦<small>6秒無敵を1本</small></button>
       </div>
       <div class="row"><button id="shareOver" class="ghost share" type="button">結果をコピー</button><button id="postOver" class="ghost share" type="button">Xでポスト</button></div>
       <p id="shareOverText" class="best" hidden></p>
@@ -362,7 +361,6 @@ body{
         <button id="againBtn" class="btn" type="button">明日も退勤する</button>
         <button id="endTitleBtn" class="ghost" type="button">タイトルへ</button>
       </div>
-      <button id="cosEnd" class="adbtn small dbl" type="button"><span class="adtag">広告</span>着せ替えを1つ解放<small>まだ持っていない物からランダム</small></button>
       <div class="row"><button id="shareEnd" class="ghost share" type="button">結果をコピー</button><button id="postEnd" class="ghost share" type="button">Xでポスト</button></div>
       <p id="shareEndText" class="best" hidden></p>
     </section>
@@ -401,7 +399,7 @@ body{
       <div class="kicker">スポンサー</div>
       <p class="big">広告</p>
       <p id="adLabel" class="sub"></p>
-      <p class="verdict">アプリ版では<wbr>ここで<wbr>リワード広告が<wbr>流れます。</p>
+      <p class="verdict">Web版は<wbr>広告なしで<wbr>受け取れます。</p>
       <p id="adCount" class="clock">3</p>
       <button id="adClose" class="ghost" type="button">閉じる（報酬なし）</button>
     </section>
@@ -991,15 +989,18 @@ const withTimeout = (pr, ms) => new Promise((res, rej) => {
   pr.then(v => { clearTimeout(t); res(v); }, e => { clearTimeout(t); rej(e); });
 });
 const Ads = {
-  ready: false, busy: false,
+  ready: false, busy: false, privacy: false, // privacy：EU などで「広告のプライバシー設定」を出す必要がある
   pre: null, preAt: 0, // 先読み中・先読み済みの広告（Promise<boolean>）と読み込んだ時刻
   async init() {
     const ad = CAP().AdMob; if (!ad) return;
     try {
-      await ad.initialize({ initializeForTesting: AD_TESTING });
+      // 対象年齢13歳以上なので、広告の内容も「Teen（13歳以上向け）」まで
+      await ad.initialize({ initializeForTesting: AD_TESTING, maxAdContentRating: 'Teen' });
       // ヨーロッパなどの同意画面（必要な地域だけ表示される）
       const ci = await ad.requestConsentInfo();
       if (ci && ci.isConsentFormAvailable && ci.status === 'REQUIRED') await ad.showConsentForm();
+      // 同意をあとから変える入口（設定の「広告のプライバシー設定」）が必要な地域か
+      this.privacy = !!(ci && ci.privacyOptionsRequirementStatus === 'REQUIRED');
       // iOSのトラッキング許可
       if (ad.trackingAuthorizationStatus) { const s = await ad.trackingAuthorizationStatus(); if (s && s.status === 'notDetermined') await ad.requestTrackingAuthorization(); }
       this.ready = true;
@@ -1035,6 +1036,11 @@ const Ads = {
       return earned;
     } finally { for (const h of hs) h && h.remove && h.remove(); }
   },
+  // 設定から：Google の同意画面をもう一度開く
+  async showPrivacy() {
+    const ad = CAP().AdMob; if (!ad || !this.privacy) return;
+    try { await ad.showPrivacyOptionsForm(); } catch (e) { toast('プライバシー設定を開けませんでした。通信できる場所でもう一度お試しください'); }
+  },
   // 報酬付き広告を最後まで見たら true
   async reward(label) {
     if (this.busy) return false;
@@ -1042,9 +1048,11 @@ const Ads = {
     try {
       const ad = CAP().AdMob;
       if (!ad) return await mockAd(label);
-      if (!this.ready) { toast('広告を準備できませんでした。通信できる場所でもう一度お試しください'); return false; }
+      const offline = () => navigator.onLine === false;
+      if (!this.ready) { toast(offline() ? '通信できません。つながる場所でもう一度お試しください' : '広告を準備できませんでした。少し時間をおいてお試しください'); return false; }
       if (!this.pre || Date.now() - this.preAt > AD_STALE_MS) this.preload();
-      if (!(await this.pre)) { toast('広告を読み込めませんでした。通信できる場所でもう一度お試しください'); return false; }
+      // 読み込めないのは、通信エラーより「いま流せる広告がない」（在庫切れ）のほうが多い
+      if (!(await this.pre)) { toast(offline() ? '通信できません。つながる場所でもう一度お試しください' : 'いま流せる広告がありません。少し時間をおいてお試しください'); return false; }
       this.pre = null; // 1本を使い切る
       return await this.show(ad);
     } catch (e) { return false; } finally { this.busy = false; this.preload(); }
@@ -4261,7 +4269,7 @@ function startStage(i, freshAmmo) {
   if (G.bossMode) { G.bossStart = G.play; startBoss(); setBossModeButtons(); return; } // ボスモードは道中なしでいきなりボス戦
   if (i === 0 && !G.ura && !G.daily && !G.endless && !tutDone()) startTut(); // 通常モードの1面で、まだ見ていない人だけ
 }
-function newRun() { G.cont = false; G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.adCos = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
+function newRun() { G.cont = false; G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
 // つづきから：今までに到達した一番先のフロアから。残機は最初と同じ（広告で+1）、脂肪満タン。スコアは記録しない
 function contStage() { return Math.min(STAGES.length - 1, (G.best && G.best.stage) || 0); }
 function startContinue(extraLife) {
@@ -4302,23 +4310,27 @@ function respawn() {
 // 広告：その場で復活（脂肪3個・1回のプレイで1度だけ）
 function revive() {
   G.revived = true; ovOver.hidden = true;
+  G.stats.miss = (G.stats.miss || 0) + 1; // やられたことに変わりはないので、ボスの「ノーミス」は取れない
   respawn(); G.hitstop = 0; G.shake = 0;
   G.parts = G.parts.filter(p => p.type !== 'ink' && p.type !== 'shirt');
   G.flash = 0.7; G.flashCol = '#fff'; pauseBtn.hidden = false;
   text('復活！', P.x, P.y - 130, 28, '#ffe27a'); sfx('kit'); Haptic.tap('medium'); musicResume();
 }
-// 広告：開始から6秒間無敵
+// 広告：好きなときに使えるドリンク（6秒無敵）を1本
 function giveStartDrink() { G.drinkStock = 1; text('ドリンク携帯！', P.x, P.y - 130, 18, '#ffe27a'); }
 // ボスモードのときだけ結果画面のボタンを差し替える
 function setBossModeButtons() {
   nextBtn.textContent = G.rush ? 'もう一度ボスラッシュ' : G.bossMode ? 'もう一度ボスに挑む' : '次のフロアへ';
   $('clearBig').textContent = 'フロア突破'; // ボスラッシュの結果で書き換えたものを戻す
-  $('nextDrinkBtn').hidden = !!G.bossMode;
   $('clearBossBtn').hidden = $('clearTitleBtn').hidden = !G.bossMode;
+  setAdButtons();
 }
+// 広告ボタンの出し分け。もらっても意味のないときは出さない
 function setAdButtons() {
+  const noDrink = !!(G.daily && G.daily.mod.id === 'nodrink'); // お題「栄養ドリンク禁止」
   $('reviveBtn').hidden = !!G.revived;
-  $('cosOver').hidden = $('cosEnd').hidden = !!G.adCos || !lockedCostumes().length;
+  $('retryDrinkBtn').hidden = !G.revived || noDrink; // 復活が残っている間は復活だけ（広告ボタンは1つずつ）
+  $('nextDrinkBtn').hidden = !!G.bossMode || !!G.drinkStock || noDrink; // ドリンクは1本までで持ち越すので、持っていたら増えない
 }
 function togglePause() {
   if (G.mode === 'play') { G.prevMode = 'play'; G.mode = 'paused'; ovPause.hidden = false; musicStop(); P.charging = false; chargeSound(false); ptr = mptr = fptr = null; resumeBtn.focus({ preventScroll: true }); }
@@ -4877,7 +4889,7 @@ const TIES = {
   red: { name: '赤ストライプ', col: '#c9302a', edge: '#7d1a14', stripe: 'rgba(255,220,120,.55)' },
   blue: { name: '紺ストライプ', col: '#22427a', edge: '#10213f', stripe: 'rgba(255,255,255,.5)', cond: 'heavy' },
   green: { name: '若草ストライプ', col: '#3f8a4e', edge: '#1f4a28', stripe: 'rgba(255,255,255,.45)', cond: 'graze100' },
-  gold: { name: '金のネクタイ', col: '#d9a521', edge: '#8a6410', stripe: 'rgba(255,255,255,.6)', cond: 'ad' },
+  gold: { name: '金のネクタイ', col: '#d9a521', edge: '#8a6410', stripe: 'rgba(255,255,255,.6)', cond: 'combo10' },
   dot: { name: '水玉ネクタイ', col: '#1f5fa8', edge: '#0f3360', pat: 'dot', stripe: 'rgba(255,255,255,.85)', cond: 'catch' },
   naruto: { name: 'なると柄', col: '#f4efe4', edge: '#b8ab92', pat: 'naruto', stripe: '#e0457b', cond: 'ramen' },
   plain: { name: '黒無地', col: '#18191c', edge: '#050506', stripe: 'rgba(255,255,255,.12)', cond: 'allorder' },
@@ -4898,10 +4910,9 @@ const COS_LABEL = { suit: 'スーツ', tie: 'ネクタイ', head: '頭' };
 const SUIT = () => SUITS[META.cos.suit] || SUITS.navy;
 const TIE = () => TIES[META.cos.tie] || TIES.red;
 const HEAD = () => (HEADS[META.cos.head] ? META.cos.head : 'none');
-function owned(list, id) { const d = list[id]; return !d.cond || META.unlocked[id] || (d.cond !== 'ad' && META.ach[d.cond]); }
-function lockedCostumes() { const out = []; for (const kind in COS) { const list = COS[kind]; for (const id in list) if (!owned(list, id)) out.push({ kind, id, name: list[id].name }); } return out; }
-function unlockRandomCostume() { const l = lockedCostumes(); if (!l.length) return null; const pick = l[Math.floor(NATIVE_RANDOM() * l.length)]; META.unlocked[pick.id] = 1; saveMeta(); return pick; }
-function condText(d) { return d.cond === 'ad' ? '広告を見て解放' : '実績「' + ACHS.find(a => a.id === d.cond).name + '」で解放'; }
+// META.unlocked は以前の広告で解放した物（広告での解放はやめたが、持っている物はそのまま使える）
+function owned(list, id) { const d = list[id]; return !d.cond || META.unlocked[id] || META.ach[d.cond]; }
+function condText(d) { return '実績「' + ACHS.find(a => a.id === d.cond).name + '」で解放'; }
 
 /* ================= 今日のお題（日付で決まる条件と乱数） ================= */
 const MODS = [
@@ -5061,13 +5072,9 @@ function showCostume() {
   openPanel('着せ替え', `<canvas id="cosPrev" width="240" height="240" aria-label="着せ替えの見た目"></canvas>
     ${Object.keys(COS).map(kind => `<h3>${COS_LABEL[kind]}</h3><div class="cosgrid">${Object.keys(COS[kind]).map(k => item(kind, COS[kind], k)).join('')}</div>`).join('')}`);
   drawCostumePreview();
-  panelBody.querySelectorAll('.cos').forEach(b => b.addEventListener('click', async () => {
+  panelBody.querySelectorAll('.cos').forEach(b => b.addEventListener('click', () => {
     const kind = b.dataset.kind, id = b.dataset.id, list = COS[kind];
-    if (b.dataset.locked) {
-      if (list[id].cond !== 'ad') return;
-      if (!(await Ads.reward(list[id].name + 'を解放'))) { titleMusicKick(); return; }
-      META.unlocked[id] = 1; toast('着せ替え解放：' + list[id].name); titleMusicKick();
-    }
+    if (b.dataset.locked) return;
     META.cos[kind] = id; saveMeta(); showCostume();
   }));
 }
@@ -5087,7 +5094,7 @@ function showSettings() {
     <label class="set"><span>揺れ・フラッシュ</span><button id="setCalm" class="tbtn" type="button" aria-pressed="${SETTINGS.calm}">${SETTINGS.calm ? '弱め' : '標準'}</button></label>
     <label class="set"><span>tips（初めて見る物の説明）</span><button id="setTips" class="tbtn" type="button" aria-pressed="${SETTINGS.tips}">${SETTINGS.tips ? 'ON' : 'OFF'}</button></label>
     <label class="set"><span>チュートリアル</span><button id="setTut" class="tbtn" type="button" aria-pressed="${!tutDone()}">${tutDone() ? 'OFF' : 'ON'}</button></label>
-    <p class="pnote"><a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>　<button id="setCredits" class="linkbtn" type="button">クレジット</button>　<button id="setReport" class="linkbtn" type="button">不具合を報告</button></p>`);
+    <p class="pnote"><a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>　<button id="setCredits" class="linkbtn" type="button">クレジット</button>　<button id="setReport" class="linkbtn" type="button">不具合を報告</button>${Ads.privacy ? '　<button id="setAdPrivacy" class="linkbtn" type="button">広告のプライバシー設定</button>' : ''}</p>`);
   const tog = (id, key) => $(id).addEventListener('click', () => { SETTINGS[key] = !SETTINGS[key]; saveSettings(); $(id).setAttribute('aria-pressed', SETTINGS[key]); $(id).textContent = SETTINGS[key] ? 'ON' : 'OFF'; if (key === 'sound' && SETTINGS.sound) titleMusicKick(); if (key === 'vib') Haptic.tap('medium'); });
   tog('setSound', 'sound'); tog('setVib', 'vib'); tog('setTips', 'tips');
   $('setBgm').addEventListener('input', e => { SETTINGS.bgm = +e.target.value; saveSettings(); });
@@ -5095,6 +5102,7 @@ function showSettings() {
   $('setSe').addEventListener('change', () => sfx('pick'));
   $('setCredits').addEventListener('click', showCredits);
   $('setCalm').addEventListener('click', () => { SETTINGS.calm = !SETTINGS.calm; saveSettings(); $('setCalm').setAttribute('aria-pressed', SETTINGS.calm); $('setCalm').textContent = SETTINGS.calm ? '弱め' : '標準'; });
+  $('setAdPrivacy')?.addEventListener('click', () => Ads.showPrivacy());
   $('setReport').addEventListener('click', async () => { location.href = await reportMailUrl(); }); // メールアプリが開く（送るかは本人が決める）
   $('setTut').addEventListener('click', () => { const on = tutDone(); Store.set('tut', on ? 0 : 1); $('setTut').setAttribute('aria-pressed', on); $('setTut').textContent = on ? 'ON' : 'OFF'; if (on) toast('次の1面（通常）でチュートリアルが出ます'); });
 }
@@ -5689,12 +5697,6 @@ againBtn.addEventListener('click', () => { auInit(); if (G.daily) startDaily(); 
 $('reviveBtn').addEventListener('click', async () => { if (await Ads.reward('その場で復活')) revive(); else musicResume(); });
 $('retryDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンク付きで再挑戦')) { if (G.rush) startBossRush(); else { G.score = G.stageScore || 0; startStage(G.stage, true); } giveStartDrink(); } });
 $('nextDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンクを持って次へ')) { startStage(nextStageIdx(), false); giveStartDrink(); } });
-// 広告：まだ持っていない着せ替えを1つ解放（ランダム・1回のプレイで1度だけ）
-for (const id of ['cosOver', 'cosEnd']) $(id).addEventListener('click', async () => {
-  if (!(await Ads.reward('着せ替えを1つ解放'))) return;
-  G.adCos = true; const got = unlockRandomCostume(); setAdButtons();
-  if (got) toast('着せ替え解放：' + got.name + '（タイトルの「着せ替え」で着替え）');
-});
 $('endTitleBtn').addEventListener('click', toTitle);
 pauseBtn.addEventListener('click', togglePause);
 resumeBtn.addEventListener('click', togglePause);
