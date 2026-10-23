@@ -405,7 +405,7 @@ body{
         <ol>
           <li><b>スワイプ</b>で<wbr>上下左右に<wbr>移動。<wbr>当たり判定は<wbr><b>お腹</b>で、<wbr>見た目より<wbr>ちょっと<wbr>小さめ。</li>
           <li><b>赤く光る・<wbr>赤い点線</b>は<wbr>障害物。<wbr>当たると<wbr>残業確定。<wbr><b style="color:#146b38">緑に光る＋1</b>は<wbr>食べ物。</li>
-          <li>右下の<wbr><b>「撃つ」</b>で<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>移動中は<wbr>もう1本の<wbr>指で<wbr>タップすると<wbr>発射、<wbr>下に<wbr>引っ張ると<wbr>狙い撃ち。</li>
+          <li>右下の<wbr><b>「撃つ」</b>で<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>移動中は<wbr>もう1本の<wbr>指で<wbr>タップすると<wbr>発射、<wbr><b>置いたまま<wbr>長押し</b>→<wbr>左右に<wbr>ずらして<wbr>狙って<wbr>離すと<wbr>狙い撃ち<wbr>（下に<wbr>引っ張っても<wbr>よい）。</li>
           <li>当たっても<wbr><b>残機</b>が<wbr>あれば<wbr>その場で<wbr>立て直せる<wbr>（最初は2つ・<wbr>再挑戦では<wbr>そのフロアに<wbr>入ったときの数<wbr>・最低1）。</li>
           <li>撃つほど<wbr>痩せて<wbr>当たり判定が<wbr>小さくなる。<wbr>でも<wbr>脂肪<b>0</b>のまま<wbr>2秒<wbr>たつと<wbr>ガリガリに<wbr>燃え尽きる。<wbr>すぐ<wbr>食べれば<wbr>助かる。</li>
           <li>太っているほど<wbr>スコアが伸びる。<wbr>食べて回復：<wbr>おにぎり／<wbr>からあげは<wbr>貫通弾／<wbr>マシマシラーメンは<wbr>全回復。</li>
@@ -3577,7 +3577,7 @@ function quickFire() {
   if (!canAct() || ammo() === 0 || G.fireCD > 0) return;
   fire({ x: clamp(P.vx / 1600, -0.25, 0.25), y: -1 }, 0.85); G.fireCD = 0.12;
 }
-function startCharge(kb) { P.charging = true; P.kb = kb; P.pullAmt = 0; G.kbAim = 0; chargeSound(true); }
+function startCharge(kb, hold) { P.charging = true; P.kb = kb; P.hold = !!hold; P.pullAmt = 0; G.kbAim = 0; chargeSound(true); }
 cv.addEventListener('pointerdown', e => {
   if (!canAct()) return;
   e.preventDefault();
@@ -3608,14 +3608,19 @@ cv.addEventListener('pointermove', e => {
     }
   }
 });
+// 2本目の指を動かさずに置いたままにすると狙い撃ちの構え（下に引く場所がいらない）。毎フレーム（プレイ中）
+const HOLD_CHARGE = 0.22;
+function holdTick() {
+  if (ptr && ptr.second && !P.charging && canAct() && ammo() > 0 && performance.now() - ptr.t0 > HOLD_CHARGE * 1000) startCharge(false, true);
+}
 function endPtr(e, cancel) {
   if (fptr && fptr.id === e.pointerId) { fptr = null; return; }
   if (mptr && mptr.id === e.pointerId) { mptr = null; return; }
   if (!ptr || ptr.id !== e.pointerId) return;
   if (P.charging && !P.kb) {
     const dy = ptr.y - ptr.sy, L = Math.hypot(ptr.x - ptr.sx, dy);
-    P.charging = false; chargeSound(false);
-    if (!cancel && dy > 12 && L > 22 && canAct()) { fire(P.aim, clamp(P.pullAmt, 0.35, 1)); G.fireCD = 0.12; G.stats.aimed = (G.stats.aimed || 0) + 1; }
+    P.charging = false; chargeSound(false); const hold = P.hold; P.hold = false;
+    if (!cancel && (hold || (dy > 12 && L > 22)) && canAct()) { fire(P.aim, clamp(P.pullAmt, 0.35, 1)); G.fireCD = 0.12; G.stats.aimed = (G.stats.aimed || 0) + 1; }
   } else if (ptr.second && !cancel) quickFire();
   ptr = null;
 }
@@ -3660,6 +3665,10 @@ function updatePlayer(dt, rdt) {
       P.pullAmt = Math.min(1, P.pullAmt + rdt * 2.2);
       P.pullDX = -G.kbAim * 0.6;
       P.aim = { x: Math.sin(G.kbAim), y: -Math.cos(G.kbAim) };
+    } else if (P.hold && ptr) { // 長押し：置いている時間で溜まり、左右にずらして狙う
+      const a = clamp((ptr.x - ptr.sx) / 70, -1.2, 1.2);
+      P.pullAmt = Math.min(1, P.pullAmt + rdt * 2.2); P.pullDX = -a * 0.6;
+      P.aim = { x: Math.sin(a), y: -Math.cos(a) };
     } else if (ptr) {
       const dx = ptr.x - ptr.sx, dy = ptr.y - ptr.sy, L = Math.hypot(dx, dy);
       P.pullAmt = clamp(L / 120, 0, 1) * (dy > 0 ? 1 : 0.3); P.pullDX = clamp(dx / 120, -1, 1);
@@ -3896,7 +3905,7 @@ const TUT = [
   { text: () => '<span class="tkey">ここがキモ！</span><br>撃つほど痩せて、<b>赤い点線の当たり判定</b>が<b>小さく</b>なる。<br>細いほど弾をすり抜けやすい', hl: 'hitbox', info: true },
   { text: () => 'ただし下の<b>脂肪の弾</b>が<b>尽きる</b>と<br><b class="tdead">燃え尽きて死亡</b>。<br>右上の<b>スコア倍率</b>も痩せるほど下がる', hl: 'fat', info: true },
   { text: () => '尽きても<b>2秒だけ猶予</b>がある。<br>そのあいだに<b>食べ物</b>を取れば<b>復活</b>！<br>おにぎりを取って脂肪を戻そう', setup: () => addEnt({ type: 'item', kind: 'onigiri', x: clamp(P.x + 60, WL + 60, WR - 60), y: 120, r: 13 }), done: T => G.stats.items > T.items0, limit: 12 },
-  { text: () => (TOUCH ? '<b>お腹を下に引っ張って離す</b>と狙い撃ち。' : '<b>Spaceを長押し</b>→<b>←→で狙って離す</b>と狙い撃ち。') + '<br>跳ね返った脂肪は<b>お腹で受けると再吸収</b>', hl: 'belly', done: () => (G.stats.aimed || 0) > 0, limit: 14 },
+  { text: () => (TOUCH ? '<b>お腹を下に引っ張って離す</b>と狙い撃ち。<br>移動中はもう1本の指を<b>長押し→左右で狙って離す</b>でもOK。' : '<b>Spaceを長押し</b>→<b>←→で狙って離す</b>と狙い撃ち。') + '<br>跳ね返った脂肪は<b>お腹で受けると再吸収</b>', hl: 'belly', done: () => (G.stats.aimed || 0) > 0, limit: 14 },
   { text: () => '<b>赤く光る</b>のは障害物。<br>避けるか、撃って壊そう', setup: () => { G.tutPile = addEnt({ type: 'pile', x: clamp(P.x + (P.x < W / 2 ? 120 : -120), WL + 60, WR - 60), /* 動かなくても当たらない位置 */ y: -50, w: 70, h: 56, hp: 1, solid: true, harm: true, shape: 'rect', seed: 2 }); }, done: () => !G.tutPile || G.tutPile.dead || G.tutPile.y > P.y + 90, limit: 9 },
   { text: () => 'その調子！ <b>出口</b>まで走り抜けろ', done: T => T.t > 1.8, last: true },
 ];
@@ -4308,6 +4317,7 @@ function step(dt, rdt) {
     spd = st.speed * (G.bossPhase ? 0.5 : 1);
     G.play += dt; G.fireCD = Math.max(0, (G.fireCD || 0) - rdt);
     if (fptr && G.fireCD <= 0) { quickFire(); G.fireCD = 0.2; } // 押しっぱなしで連射
+    holdTick();
     G.scrollY += spd * dt;
     updateTut(rdt);
     if (!G.bossPhase) { if (!G.tut) G.dist += spd * dt; /* 説明中は進まない */ spawner(dt); if (G.dist >= st.len) startBoss(); }
