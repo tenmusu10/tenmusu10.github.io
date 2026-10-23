@@ -5304,7 +5304,7 @@ const PROLOGUE = [
   },
   {
     fx: 'white',
-    text: '18:00。今日は娘の誕生日で、ケーキは19時。' + HERO.family + 'は入社20年目で初めて、定時に退勤を打刻した。',
+    text: '18:00。今日は娘の誕生日で、ケーキは20時。' + HERO.family + 'は入社20年目で初めて、定時に退勤を打刻した。',
     art(c) { storyRoom(c, '#c3cbbd', '#b8c1b2'); storyClock(c, 92, 70); storyHero(c, 226, 116, 0.62); },
   },
   {
@@ -5323,7 +5323,7 @@ const PROLOGUE = [
     art(c) { storyRoom(c, '#2a1f1c', '#3a2c27'); storyBoss(c, 'shacho', 160, 112, 0.6); storySpeaker(c, 40, 34); storySpeaker(c, 280, 34); },
   },
   {
-    text: '撃てば痩せて身軽になる。でも出し切れば<b>燃え尽きる</b>。食べて脂肪を足しながら、19時までに家へ帰れ。',
+    text: '撃てば痩せて身軽になる。でも出し切れば<b>燃え尽きる</b>。食べて脂肪を足しながら、20時までに家へ帰れ。',
     art(c) {
       storyRoom(c, '#c3cbbd', '#b8c1b2'); storyHero(c, 160, 124, 0.62);
       drawFood(c, 'onigiri', 62, 70, 0); drawFood(c, 'karaage', 258, 66, 0); drawFood(c, 'ramen', 72, 128, 0);
@@ -5340,7 +5340,7 @@ const STORY_AFTER = {
 };
 // エンディング（5面の社長を倒したあと。通常モードだけ）。娘のセリフは帰宅時刻と残りの脂肪で変わる
 function endingPages(info) {
-  const early = info.min < 19 * 60, hhmm = `${Math.floor(info.min / 60) % 24}:${String(info.min % 60).padStart(2, '0')}`;
+  const early = info.min < 20 * 60, /* 5面を通すと最速でも19時台になるので、20時前を「間に合った」にする */ hhmm = `${Math.floor(info.min / 60) % 24}:${String(info.min % 60).padStart(2, '0')}`;
   const fatLine = info.fat >= 6 ? '<br>パパ、今日もおなか<b>ぽよぽよ</b>だね！' : info.fat <= 1 ? '<br>……パパ、なんか<b>痩せた</b>？' : '';
   return [
     { who: '社長', text: STORY_AFTER.kyoshacho.text, art(c) { storyRoom(c, '#2a2f3a', '#323846'); storyBoss(c, 'shacho', 110, 116, 0.55); storyHero(c, 232, 124, 0.6); txt(c, '自宅前', 160, 18, F.dg(14), COL.memo, 'center', COL.ink, 4); } },
@@ -5510,7 +5510,7 @@ function storyAfterPages() {
     const s = STORY_AFTER[st.boss]; if (!s || !STORY_SEEN[st.boss]) return;
     const th = THEMES[st.theme];
     out.push({ who: s.who, text: s.text, art(c) { storyRoom(c, th.floor, th.floor2); storyBoss(c, st.boss, 160, 112, 0.6); txt(c, st.name + ' CLEAR', 160, 18, F.px(13), '#fff', 'center', COL.ink, 4); } });
-    if (i === STAGES.length - 1 && STORY_SEEN.ending) out.push(...endingPages(Store.get('storyEnd', { min: 19 * 60 + 30, fat: 3 })).slice(1)); // 社長のひとことは上で出した
+    if (i === STAGES.length - 1 && STORY_SEEN.ending) out.push(...endingPages(Store.get('storyEnd', { min: 20 * 60 + 30, fat: 3 })).slice(1)); // 社長のひとことは上で出した
   });
   return out;
 }
