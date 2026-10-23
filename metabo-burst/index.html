@@ -1057,10 +1057,10 @@ function mockAd(label) {
 // Play Console は ID を自動で付ける（CgkI…）ので、ゲーム内の名前 → Play の ID をここに書く。
 // 空のものは送らない。android/app/src/main/res/values/strings.xml の game_services_project_id を入れたら全部埋める（npm run release:check が確かめる）
 const PLAY_IDS = {
-  boards: { normal: '', ura: '', endless: '' },
+  boards: { normal: 'CggIr864928QAhAA', ura: 'CggIr864928QAhAB', endless: 'CggIr864928QAhAC' },
   ach: {
-    clear: '', ura: '', heavy: '', skinny: '', combo10: '', graze100: '', face10: '', mid3: '', burn: '', catch: '', ramen: '',
-    score100k: '', daily: '', order: '', loop2: '', nomiss_shacho: '', nomiss_client: '', nomiss_senmu: '', nomiss_yakushiji: '', nomiss_kyoshacho: '', allorder: '', ura1: '', ura2: '', rush: '',
+    clear: 'CggIr864928QAhAK', ura: 'CggIr864928QAhAU', heavy: 'CggIr864928QAhAM', skinny: 'CggIr864928QAhAE', combo10: 'CggIr864928QAhAR', graze100: 'CggIr864928QAhAW', face10: 'CggIr864928QAhAV', mid3: 'CggIr864928QAhAF', burn: 'CggIr864928QAhAG', catch: 'CggIr864928QAhAX', ramen: 'CggIr864928QAhAT',
+    score100k: 'CggIr864928QAhAD', daily: 'CggIr864928QAhAJ', order: 'CggIr864928QAhAN', loop2: 'CggIr864928QAhAY', nomiss_shacho: 'CggIr864928QAhAO', nomiss_client: 'CggIr864928QAhAP', nomiss_senmu: 'CggIr864928QAhAQ', nomiss_yakushiji: 'CggIr864928QAhAZ', nomiss_kyoshacho: 'CggIr864928QAhAa', allorder: 'CggIr864928QAhAI', ura1: 'CggIr864928QAhAS', ura2: 'CggIr864928QAhAL', rush: 'CggIr864928QAhAH',
   },
 };
 const GameServices = {
@@ -5240,6 +5240,16 @@ function closeTip(never) {
   if (G.mode !== 'tip') return;
   if (never) { SETTINGS.tips = false; saveSettings(); G.tipQ = []; toast('tipsはタイトルの「tips集」でいつでも見られます'); }
   $('ovTip').hidden = true; G.mode = 'play'; musicResume();
+  tipGrace();
+}
+// tipsは弾が出た瞬間に出ることが多く、閉じるとすぐ目の前に弾がある。画面の敵弾を消し、ボスは少し待ってから攻撃を再開する
+function tipGrace() {
+  for (const e of G.ents) if (e.shot && e.harm) { e.dead = true; sparks(e.x, e.y, 2, '#ffe27a'); }
+  const b = G.boss;
+  if (!G.bossPhase || !b || b.state !== 'fight') return;
+  for (const q of G.queue) q.t += 1.2; // 撃ちかけの連射は消さずに遅らせる（フラスコ投げなども技の形のまま残る）
+  if (b.order) b.order.et = Math.max(b.order.et, 1); // 業務命令は次の弾まで1秒あける
+  else if (!b.gulp && !b.dash) b.atkT = Math.max(b.atkT, 1.5);
 }
 // tips集：出会ったものは絵と説明、まだのものは伏せる
 function showTipsBook() {
