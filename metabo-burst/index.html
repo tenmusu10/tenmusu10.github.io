@@ -514,7 +514,7 @@ const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
 const ui = document.getElementById('ui'), uctx = ui.getContext('2d'); // HUD・演出用（色かぶりの上に描く）
 let scale = 1;
-const RES = { f: 1, slow: 0 }; // 描画解像度の倍率（重いと自動で下げる）
+const RES = { f: 1, slow: 0, fast: 0, cap: 1, tried: 0 }; // 描画解像度の倍率（重いと自動で下げ、軽くなれば戻す）
 function resize() {
   for (const k in SPRITES) if (k.includes('@')) delete SPRITES[k]; // 解像度が変わったら描き直す
   const sw = stageEl.clientWidth, sh = stageEl.clientHeight;
@@ -4171,10 +4171,18 @@ function loop(now) {
   step(dt, rdt);
   render();
   musicTick();
-  // 遅いフレーム（45fps未満）が合計1.2秒たまったら、描画解像度を一段下げる
+  // 遅いフレーム（45fps未満）が合計1.2秒たまったら、描画解像度を一段下げる。
+  // 下げたあと8秒ほど軽い状態が続けば一段戻す（弾幕が一時的に重かっただけで、ぼやけたままにしない）。
+  // 戻した解像度でまた下がったら、その端末には重いので、それより上には戻さない（行ったり来たりを防ぐ）
   if (G.mode === 'play') {
     RES.slow = rdt > 1 / 45 ? RES.slow + rdt : Math.max(0, RES.slow - rdt * 0.3);
-    if (RES.slow > 1.2 && RES.f > 0.55) { RES.f = Math.round((RES.f - 0.15) * 100) / 100; RES.slow = 0; resize(); }
+    RES.fast = rdt > 1 / 45 ? 0 : RES.fast + (rdt < 1 / 50 ? rdt : 0);
+    if (RES.slow > 1.2 && RES.f > 0.55) {
+      if (RES.f === RES.tried) RES.cap = RES.f - 0.15;
+      RES.f = Math.round((RES.f - 0.15) * 100) / 100; RES.slow = RES.fast = 0; resize();
+    } else if (RES.fast > 8 && RES.f < Math.min(1, RES.cap) - 0.01) {
+      RES.f = RES.tried = Math.round((RES.f + 0.15) * 100) / 100; RES.slow = RES.fast = 0; resize();
+    }
   }
 }
 </script>
