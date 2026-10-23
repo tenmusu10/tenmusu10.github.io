@@ -1369,18 +1369,22 @@ function heroPose(B, opt) {
     const lift = charging ? (s < 0 ? 2 : 0) : Math.max(0, Math.sin(ph + (s > 0 ? Math.PI : 0))) * 9;
     return { s, lift, hip: [s * lerp(7, 12, P.fat), 24], knee: [s * (12 + lift * 0.3), 37 - lift * 0.95], foot: [s * 11, 49 - lift * 1.15] };
   }).sort((p, q) => p.lift - q.lift);
+  // 撃った直後の0.18秒は「ブルン！」の反動ポーズ：胸を張って腕を後ろへ振り、撃った向きと逆へのけぞる
+  const kick = shotKick(), dx = P.shotX || 0;
   return {
-    bob: -Math.abs(Math.cos(ph)) * 3.2 * (charging ? 0.25 : 1),
-    lean: opt.lean || clamp(P.vx / 640, -1, 1) * 0.08,
-    legs, arms: armPose(B, ph, opt),
-    head: { x: P.b.ox * 0.15, y: -57 + Math.sin(ph * 2) * 0.8 + P.pullAmt * 3, a: charging ? Math.sin(G.t * 50) * 0.02 * P.pullAmt : 0 },
+    bob: -Math.abs(Math.cos(ph)) * 3.2 * (charging ? 0.25 : 1) - kick * 2,
+    lean: opt.lean || clamp(P.vx / 640, -1, 1) * 0.08 - dx * 0.14 * kick,
+    legs, arms: armPose(B, ph, opt, kick),
+    head: { x: P.b.ox * 0.15 - dx * 2 * kick, y: -57 + Math.sin(ph * 2) * 0.8 + P.pullAmt * 3 - 2.5 * kick, a: (charging ? Math.sin(G.t * 50) * 0.02 * P.pullAmt : 0) - dx * 0.12 * kick },
   };
 }
-function armPose(B, ph, opt) {
+const shotKick = () => clamp((P.flail - 0.32) / 0.18, 0, 1);
+function armPose(B, ph, opt, kick) {
   const out = [];
   for (const s of [-1, 1]) {
     let hand, elbow, back = false;
     if (opt.surrender) { hand = [s * 30, -66]; elbow = [s * 31, -46]; }
+    else if (kick > 0) { hand = [s * lerp(lerp(24, 42, P.fat), 46, kick), lerp(-8, 2, kick)]; elbow = [s * lerp(lerp(22, 38, P.fat), 40, kick), -24]; back = kick > 0.5; }
     else if (P.charging) {
       hand = [B.cx + s * 15 + P.pullDX * 3, B.cy + B.ry - 3]; elbow = [s * lerp(28, 40, P.fat), B.cy - 6];
     } else if (P.flail > 0) {
@@ -1685,8 +1689,8 @@ function drawFaceParts(c, mood, head, opt) {
 }
 function drawMouth(c, mood, ph, opt) {
   if (P.charging) return part(c, 'mouthGrit', 0, 8.5);
-  if (mood === 0 && !opt.dead) return part(c, 'mouthSmile', 0, 6.3);
-  const open = 1.8 + Math.abs(Math.sin(ph * 2)) * 2.2 + (mood >= 3 ? 1.5 : 0) + (opt.dead ? 3 : 0);
+  if (mood === 0 && !opt.dead && !shotKick()) return part(c, 'mouthSmile', 0, 6.3);
+  const open = 1.8 + Math.abs(Math.sin(ph * 2)) * 2.2 + (mood >= 3 ? 1.5 : 0) + (opt.dead ? 3 : 0) + shotKick() * 3;
   part(c, 'mouthOpen', 0, 8, 0, (3.6 + (opt.dead ? 2 : 0)) / 3.6, open / 3);
 }
 // ふさふさカツラ：七三分け。走ると風で浮く
@@ -2156,12 +2160,15 @@ function drawBucho(c, e) {
 function drawCoworker(c, e) {
   c.save(); c.translate(e.x, e.y); c.globalAlpha = 0.75;
   c.fillStyle = 'rgba(25,35,28,.22)'; ell(c, 2, 6, 32, 8); c.fill();
-  limb(c, [[8, 0], [30, 3]], 8, COL.navy); limb(c, [[8, 4], [29, 9]], 8, COL.navy);
-  c.fillStyle = '#16171a'; ell(c, 33, 3, 3.5, 4.5); c.fill(); ell(c, 32, 10, 3.5, 4.5); c.fill();
+  const R = hasParts(), L = R ? limbCel : limb, NE = darker(COL.navy, 0.4);
+  L(c, [[8, 0], [30, 3]], 8, COL.navy, NE); L(c, [[8, 4], [29, 9]], 8, COL.navy, NE);
+  // 倒れているので靴は横向き（つま先が上）
+  if (R) { part(c, 'shoe', 33, 3, -Math.PI / 2, 0.5); part(c, 'shoe', 32, 10, -Math.PI / 2, 0.5); }
+  else { c.fillStyle = '#16171a'; ell(c, 33, 3, 3.5, 4.5); c.fill(); ell(c, 32, 10, 3.5, 4.5); c.fill(); }
   c.fillStyle = '#eef2f7'; rr(c, -14, -7, 24, 15, 5); c.fill(); c.strokeStyle = '#8f9bb0'; c.lineWidth = 1; c.stroke();
-  limb(c, [[-6, -6], [-14, -20]], 5.5, '#eef2f7', '#8f9bb0');
-  c.fillStyle = '#f2c7a6'; circ(c, -14, -21, 3.2); c.fill();
-  c.fillStyle = '#f2c7a6'; circ(c, -21, 1, 8.5); c.fill(); c.strokeStyle = '#c98b67'; c.stroke();
+  L(c, [[-6, -6], [-14, -20]], 5.5, '#eef2f7', '#8f9bb0');
+  if (R) part(c, 'hand', -14, -21, 0, 0.55); else { c.fillStyle = '#f2c7a6'; circ(c, -14, -21, 3.2); c.fill(); }
+  c.fillStyle = '#f2c7a6'; circ(c, -21, 1, 8.5); c.fill(); c.strokeStyle = R ? '#9a5a3d' : '#c98b67'; c.stroke();
   c.fillStyle = '#2d2c2b'; c.beginPath(); c.arc(-23, 1, 8.8, Math.PI * 0.6, Math.PI * 1.4); c.fill();
   c.strokeStyle = '#1b1c1e'; c.lineWidth = 1.2;
   for (const yy of [-2.5, 3]) { line(c, -19, yy - 1.5, -16, yy + 1.5); line(c, -19, yy + 1.5, -16, yy - 1.5); }
@@ -3035,7 +3042,7 @@ function fire(dir, power) {
   P.slot[i] = null;
   const spd = 560 + 520 * power;
   G.bullets.push({ kind, x: sx, y: sy, vx: dir.x * spd, vy: dir.y * spd, r: kind === 'karaage' ? 15 : 14, pierce: kind === 'karaage' ? 8 : 2, dmg: kind === 'karaage' ? 2 : 1, bounces: 0, life: 0, rot: 0, spin: rnd(18, 30) * (Math.random() < 0.5 ? -1 : 1), hit: new Set(), trail: [] });
-  P.b.vsy -= 9; P.b.voy -= 260; P.b.vsx += 4; P.flail = 0.5;
+  P.b.vsy -= 9; P.b.voy -= 260; P.b.vsx += 4; P.flail = 0.5; P.shotX = dir.x;
   for (let k = 0; k < 8; k++) G.parts.push({ type: 'sweat', col: 'rgba(255,226,140,.95)', size: rnd(2, 4), x: sx, y: sy, vx: rnd(-160, 160), vy: rnd(-260, -40), life: 0.7, max: 0.7 });
   sparks(sx, sy, 10); ring(sx, sy, 110, 'rgba(255,255,255,.9)', 6);
   for (const e of G.ents) if (e.shot && !e.hard && Math.hypot(e.x - sx, e.y - sy) < 105) { e.dead = true; burst(e.x, e.y, 5, e.type === 'stamp' ? '#f4c3bd' : null); }
