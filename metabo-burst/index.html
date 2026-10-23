@@ -234,7 +234,9 @@ body{
 .scs{margin:0;font-family:var(--f-pixel);font-size:4cqw;color:var(--memo)}
 .sbox{position:relative;flex:none;min-height:36cqw;margin:0 3cqw 4cqw;padding:5cqw 4.4cqw 7cqw;background:linear-gradient(180deg,rgba(18,22,26,.97),rgba(8,10,12,.97));border:.5cqw solid var(--paper);border-radius:1.6cqw;box-shadow:0 0 0 .8cqw #000,0 0 0 1.1cqw rgba(255,255,255,.25)}
 .swho{position:absolute;left:3.4cqw;top:-4.4cqw;padding:.8cqw 3cqw;background:var(--hanko);border:.4cqw solid var(--paper);border-radius:1cqw;font-family:var(--f-display);font-size:3.8cqw;color:#fff}
-.stext{margin:0;font-weight:700;font-size:4.3cqw;line-height:1.75;text-align:left;word-break:auto-phrase;min-height:18cqw}
+.stext{margin:0;font-weight:700;font-size:4.3cqw;line-height:1.75;text-align:left;min-height:18cqw}
+/* ストーリーの文：phrase() が入れた文節の切れ目（<wbr>）でだけ折り返す。1文節が1行より長いときだけ途中で折る */
+.stext,.ph,.tips li p.ph{word-break:keep-all;overflow-wrap:anywhere;line-break:strict;text-wrap:pretty}
 .stext b{color:var(--memo)}
 .stext .sh{visibility:hidden}
 .snext{position:absolute;right:3cqw;bottom:1.6cqw;background:none;border:0;color:var(--memo);font-family:var(--f-display);font-size:4cqw;cursor:pointer;opacity:0}
@@ -435,6 +437,7 @@ const PLAY_URL = 'https://play.google.com/store/apps/details?id=io.github.tenmus
 const W = 420, H = 860, WL = 34, WR = W - 34;
 const K = 1.32; // おじさんの描画倍率
 const YMIN = 168, YMAX = H - 140; // 上下に動ける範囲
+const BOSS_QUIET = 4.5; // ボス直前の空白ゾーン（秒）。この間は敵が出ない
 const TAU = Math.PI * 2;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -3112,9 +3115,11 @@ function spawner(dt) {
   if (!G.midDone && p >= 0.5) spawnMid();
   if (G.ents.some(e => e.type === 'mid')) { G.itemT -= dt; if (G.itemT <= 0) { spawnItem(false); G.itemT = rnd(5, 7) * D().item; } return; } // 中ボス中は他の敵を出さない
   G.spawnT -= dt; for (const k in G.cd) G.cd[k] -= dt;
-  if (G.spawnT <= 0) {
+  // ボス直前は新しい敵を出さない（ボス登場時の一掃で弾が無駄にならないよう、画面を先に空ける）
+  const left = (st.len - G.dist) / st.speed; // ボスまでの残り秒
+  if (G.spawnT <= 0 && left > BOSS_QUIET) {
     const pats = [['pile', 3, 0], ['stamp', 2.3, 0.03], ['fan', 2, 0.12], ['joushi', 2.2, 0.2], ['bucho', 1.2, 0.36], ['belt', 1.3, 0.05], ['gate', 1.1, 0.2], ['car', 1.5, 0.06], ['drunk', 1.6, 0.1], ['refl', 1.3, 0.15], ['nway', G.stage === 0 && !G.ura && !G.loop ? 0.8 : 2.0, G.stage === 0 && !G.ura && !G.loop ? 0.3 : 0.08]]
-      .filter(q => st.pats.includes(q[0]) && p >= q[2] && !((G.cd[q[0]] || 0) > 0));
+      .filter(q => st.pats.includes(q[0]) && p >= q[2] && !((G.cd[q[0]] || 0) > 0) && !(q[0] === 'bucho' && left < BOSS_QUIET + 5)); // 部長は遅くて画面に長く残るので早めに打ち止め
     let tot = pats.reduce((s, q) => s + q[1], 0), r = Math.random() * tot, pick = pats[0][0];
     for (const q of pats) { r -= q[1]; if (r <= 0) { pick = q[0]; break; } }
     spawnPattern(pick, p);
@@ -5355,6 +5360,27 @@ function showEnding(done) {
   const info = endingInfo(); storySeen('ending'); storySeen(STAGES[STAGES.length - 1].boss); Store.set('storyEnd', info);
   showStory(endingPages(info), done, '帰宅 ▶');
 }
+// 文節で折り返す：切れ目に <wbr> を入れ、CSS（.ph／.stext の word-break:keep-all）で切れ目以外では折らない。
+// auto-phrase は Chrome 119+ だけなので、iPhone の Safari や古い Android の WebView でも同じ位置で折れるよう自前で切る。
+// 切るのは「句読点・閉じかっこの後」「開きかっこの前」「ひらがなの後に漢字・カタカナ・英数字が来るところ」。
+// ただしひらがな1字が助詞でなければ送り仮名とみて切らない（「働き続ける」「飛び出した」「お腹」は1語のまま）
+const PH_PART = 'のにをがはでとへもや', PH_KEEP = /わが社/g; // PH_KEEP：上の規則だと切れてしまう語
+const phCls = ch => /[ぁ-ゖ]/.test(ch) ? 'h' : /[\u4e00-\u9fff々〆ヵヶ]/.test(ch) ? 'k' : /[ァ-ヺー]/.test(ch) ? 't'
+  : /[、。，．！？!?…‥」』）)】―　]/.test(ch) ? 'c' : /[「『（(【]/.test(ch) ? 'o' : /[0-9A-Za-zＡ-Ｚａ-ｚ０-９:％%.]/.test(ch) ? 'a' : 'x';
+function phrase(html) {
+  const tk = storyTokens(html), keep = new Set(), plain = tk.map(t => t[0] === '<' ? '' : t[0] === '&' ? '_' : t);
+  for (const m of plain.join('').matchAll(PH_KEEP)) for (let i = 1; i < m[0].length; i++) keep.add(m.index + i); // 語の中の位置（文字の数え方）
+  let out = '', prev = '', pch = '', run = 0, n = 0;
+  for (const t of tk) {
+    if (t[0] === '<') { out += t; if (/^<br/i.test(t)) prev = ''; continue; } // <b> などは素通し。改行のあとは行頭
+    const c = t[0] === '&' ? 'x' : phCls(t);
+    const cut = prev && !keep.has(n) && ((prev === 'c' && c !== 'c') || (c === 'o' && prev !== 'o')
+      || (prev === 'h' && 'kta'.includes(c) && (run > 1 || PH_PART.includes(pch))));
+    out += (cut ? '<wbr>' : '') + t;
+    run = c === 'h' ? run + 1 : 0; prev = c; pch = t; n++;
+  }
+  return out;
+}
 const storyOn = () => !G.ura && !G.endless && !G.daily && !G.bossMode && !G.rush;
 const STORY_SEEN = Store.get('story', {});
 function storySeen(id) { if (!STORY_SEEN[id]) { STORY_SEEN[id] = 1; Store.set('story', STORY_SEEN); } }
@@ -5362,7 +5388,7 @@ function storySeen(id) { if (!STORY_SEEN[id]) { STORY_SEEN[id] = 1; Store.set('s
 function storyAfterHTML(kind) {
   const s = STORY_AFTER[kind]; if (!s || !storyOn()) return '';
   storySeen(kind);
-  return `<span class="say"><b>${esc(s.who)}</b>「${s.text}」</span>`;
+  return `<span class="say ph"><b>${esc(s.who)}</b>${phrase(`「${s.text}」`)}</span>`;
 }
 
 /* ---------- 絵の部品 ---------- */
@@ -5476,7 +5502,7 @@ function storyPage() {
   else sfx('pick');
   // セリフは1字ずつ。全文を先に組んで改行位置を決め、見えるかどうかだけ切り替える（出す途中で折り返しが動かない）
   const box = $('storyText');
-  box.innerHTML = storyTokens(pg.text).map(t => t[0] === '<' ? t : `<span class="sh">${t}</span>`).join('');
+  box.innerHTML = storyTokens(phrase(pg.text)).map(t => t[0] === '<' ? t : `<span class="sh">${t}</span>`).join('');
   R.tk = [...box.querySelectorAll('.sh')]; R.n = RM ? R.tk.length : 0; R.shown = 0;
   clearInterval(R.timer); storyType();
   if (R.n < R.tk.length) R.timer = setInterval(() => { R.n++; storyType(); }, 38);
@@ -5517,10 +5543,10 @@ function storyAfterPages() {
 // あらすじ：見た場面だけ読み返せる。上のボタンで紙芝居をもう一度見られる
 function showSynopsis() {
   const seen = !!STORY_SEEN.prologue, after = storyAfterPages();
-  const pro = seen ? PROLOGUE.map((pg, i) => pg.card ? '' : `<li>${pg.who ? `<b>${esc(pg.who)}</b>` : ''}<canvas class="tipart" data-story="${i}" aria-hidden="true"></canvas><p>${pg.text}</p></li>`).join('')
+  const pro = seen ? PROLOGUE.map((pg, i) => pg.card ? '' : `<li>${pg.who ? `<b>${esc(pg.who)}</b>` : ''}<canvas class="tipart" data-story="${i}" aria-hidden="true"></canvas><p class="ph">${phrase(pg.text)}</p></li>`).join('')
     : '<li class="lock"><b>？？？</b><p>「退勤を打刻」で始まります</p></li>';
   const aft = STAGES.map((st, i) => STORY_AFTER[st.boss] && (STORY_SEEN[st.boss]
-    ? `<li><b>${esc(st.name)} ${esc(STORY_AFTER[st.boss].who)}</b><p>「${STORY_AFTER[st.boss].text}」</p>${i === STAGES.length - 1 && STORY_SEEN.ending ? '<p>そして、家に帰った。（続きは「ここまで通して見る」で）</p>' : ''}</li>`
+    ? `<li><b>${esc(st.name)} ${esc(STORY_AFTER[st.boss].who)}</b><p class="ph">${phrase(`「${STORY_AFTER[st.boss].text}」`)}</p>${i === STAGES.length - 1 && STORY_SEEN.ending ? '<p>そして、家に帰った。（続きは「ここまで通して見る」で）</p>' : ''}</li>`
     : `<li class="lock"><b>${esc(st.name)} ？？？</b><p>通常モードでボスを倒すと読めます</p></li>`)).join('');
   const btns = seen ? `<div class="row"><button id="storyReplay" class="btn" type="button">▶ プロローグを見る</button>${after.length ? '<button id="storyAll" class="ghost" type="button">▶ ここまで通して見る</button>' : ''}</div>` : '';
   openPanel('あらすじ', `<p class="pnote">モーレツZ事件　見た場面はいつでも見返せます</p>${btns}<ul class="tips">${pro}${aft}</ul>`);
