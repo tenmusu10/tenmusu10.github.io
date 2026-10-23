@@ -567,7 +567,7 @@ const ui = document.getElementById('ui'), uctx = ui.getContext('2d'); // HUD・�
 let scale = 1;
 const RES = { f: 1, slow: 0, fast: 0, cap: 1, tried: 0 }; // 描画解像度の倍率（重いと自動で下げ、軽くなれば戻す）
 function resize() {
-  for (const k in SPRITES) if (k.includes('@')) delete SPRITES[k]; // 解像度が変わったら描き直す
+  if (typeof SPRITES !== 'undefined') for (const k in SPRITES) if (k.includes('@')) delete SPRITES[k]; // 解像度が変わったら描き直す（読み込み途中の resize では SPRITES がまだない）
   const sw = stageEl.clientWidth, sh = stageEl.clientHeight;
   scale = Math.min(sw / W, sh / H);
   const fw = Math.max(1, Math.floor(W * scale)), fh = Math.max(1, Math.floor(H * scale));
@@ -5118,7 +5118,7 @@ function nextToast() {
   if (!toastQ.length) { toastOn = false; return; }
   toastOn = true;
   // ボス戦中は上部の命令名・残り秒を隠さないよう、終わるまでためておく
-  if (G.mode === 'play' && G.bossPhase) { setTimeout(nextToast, 500); return; }
+  if ((G.mode === 'play' && G.bossPhase) || (typeof storyRun !== 'undefined' && storyRun)) { setTimeout(nextToast, 500); return; } // 紙芝居（エンディングなど）の上にも出さない
   const m = toastQ.shift();
   el.classList.toggle('inplay', G.mode === 'play'); // 道中はスコア表示の下に出す
   el.textContent = m; el.hidden = false; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
@@ -5343,7 +5343,7 @@ function endingPages(info) {
 const endingInfo = () => ({ min: 18 * 60 + Math.floor(G.play * 10 / 60), fat: ammo() });
 function showEnding(done) {
   const info = endingInfo(); storySeen('ending'); storySeen(STAGES[STAGES.length - 1].boss); Store.set('storyEnd', info);
-  showStory(endingPages(info), done);
+  showStory(endingPages(info), done, '帰宅 ▶');
 }
 const storyOn = () => !G.ura && !G.endless && !G.daily && !G.bossMode && !G.rush;
 const STORY_SEEN = Store.get('story', {});
@@ -5449,8 +5449,8 @@ let storyRun = null;
 // HTMLを1字ずつに分ける。タグと文字参照はまとめて1つとして扱う
 const storyTokens = html => html.match(/<[^>]+>|&[^;]+;|[^<&]/g) || [];
 // pages を順に見せ、最後まで見るかスキップしたら done を呼ぶ
-function showStory(pages, done) {
-  storyRun = { pages, i: 0, done, timer: 0 };
+function showStory(pages, done, last) {
+  storyRun = { pages, i: 0, done, timer: 0, last: last || '退勤開始 ▶' };
   $('ovStory').hidden = false; storyPage();
 }
 function storyPage() {
@@ -5470,7 +5470,7 @@ function storyPage() {
   R.tk = [...box.querySelectorAll('.sh')]; R.n = RM ? R.tk.length : 0; R.shown = 0;
   clearInterval(R.timer); storyType();
   if (R.n < R.tk.length) R.timer = setInterval(() => { R.n++; storyType(); }, 38);
-  $('storyNext').textContent = R.i < R.pages.length - 1 ? '▼' : '退勤開始 ▶';
+  $('storyNext').textContent = R.i < R.pages.length - 1 ? '▼' : R.last;
   $('storyNext').focus({ preventScroll: true });
 }
 function storyType() {
@@ -5515,7 +5515,7 @@ function showSynopsis() {
   const btns = seen ? `<div class="row"><button id="storyReplay" class="btn" type="button">▶ プロローグを見る</button>${after.length ? '<button id="storyAll" class="ghost" type="button">▶ ここまで通して見る</button>' : ''}</div>` : '';
   openPanel('あらすじ', `<p class="pnote">モーレツZ事件　見た場面はいつでも見返せます</p>${btns}<ul class="tips">${pro}${aft}</ul>`);
   panelBody.querySelectorAll('canvas[data-story]').forEach(cvs => drawStoryArt(cvs, PROLOGUE[+cvs.dataset.story]));
-  const play = pages => { closePanel(); showStory(pages, showSynopsis); }; // 見終わったら、あらすじに戻る
+  const play = pages => { closePanel(); showStory(pages, showSynopsis, '閉じる ▶'); }; // 見終わったら、あらすじに戻る
   const rp = $('storyReplay'); if (rp) rp.addEventListener('click', () => play(PROLOGUE));
   const all = $('storyAll'); if (all) all.addEventListener('click', () => play(PROLOGUE.concat(after)));
 }
