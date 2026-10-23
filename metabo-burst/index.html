@@ -405,7 +405,7 @@ function D() {
   return G.dailyDiff || (G.dailyDiff = Object.assign({}, base, { item: base.item * (m === 'food2' ? 0.5 : 1), shot: base.shot * (m === 'fast' ? 1.2 : 1), drink: m === 'nodrink' ? 999 : base.drink }));
 }
 const BOSSES = {
-  senmu: { name: '専務取締役', who: '酒井 呑兵衛', read: 'さかい のんべえ', epi: '終電を許さぬ 飲み屋街の主', hp: 18, faceR: 24, faceY: -54, attacks: ['stamp3', 'fixed', 'rain', 'bounce', 'summon', 'dash', 'ring', 'bounce', 'dash'] },
+  senmu: { name: '専務取締役', who: '酒井 呑兵衛', read: 'さかい のんべえ', epi: '終電を許さぬ 飲み屋街の主', hp: 18, faceR: 24, faceY: -54, attacks: ['stamp3', 'fixed', 'gulp', 'rain', 'bounce', 'summon', 'gulp', 'dash', 'ring', 'bounce', 'dash'] }, // gulp：専務だけの一気飲み
   shacho: { name: '代表取締役社長', who: '鬼瓦 権蔵', read: 'おにがわら ごんぞう', epi: '創業以来 定時退社ゼロの男', hp: 15, faceR: 25, faceY: -50, attacks: ['stamp3', 'fixed', 'rain', 'summon', 'ring', 'fixed'] },
   client: { name: '超大口クライアント', who: '無理田 言造', read: 'むりた いうぞう', epi: '納期前日に 仕様を変える者', hp: 12, faceR: 23, faceY: -60, attacks: ['spec', 'fixed', 'phone', 'dash', 'rain', 'fixed', 'dash', 'phone'] },
 };
@@ -595,9 +595,36 @@ const MOOD_TAG = ['', '（不穏）', '（崖っぷち）', '（悲壮）'];
 function moodIndex() { const a = ammo(); return a >= 5 ? 0 : a >= 3 ? 1 : a === 2 ? 2 : 3; }
 function songKey() { return G.mode === 'title' ? 'title' : G.boss ? 'boss_' + G.boss.kind : STAGES[G.stage].theme; }
 function songLabel() { const k = songKey(); return SONG[k].label + (k === 'title' ? '' : MOOD_TAG[moodIndex()]); }
-function musicStart() { if (!AU.ctx) return; AU.playing = true; AU.step = 0; AU.songKey = songKey(); AU.next = AU.ctx.currentTime + 0.08; }
+// ボス戦の曲ファイル（bgm/ に置いてパスを書く）。null・読めない・file:// で開いたときは合成の曲で鳴らす
+// 曲ファイルは audio 要素で鳴らす：音量は「BGMの音量」に合わせ、脂肪が尽きかけたら少し遅くする（合成の曲ほどは崩れない）
+const BGM_FILES = { boss_shacho: null, boss_client: null, boss_senmu: null };
+const BGM_EL = {};
+let bgmCur = null;
+function bgmEl(key) {
+  const src = BGM_FILES[key]; if (!src || location.protocol === 'file:') return null;
+  let el = BGM_EL[key];
+  if (!el) {
+    el = BGM_EL[key] = new Audio(src); el.loop = true; el.preload = 'auto';
+    if ('preservesPitch' in el) el.preservesPitch = false;
+    el.addEventListener('error', () => { el.failed = true; });
+  }
+  return el.failed ? null : el;
+}
+function bgmFileStop(reset) { if (!bgmCur) return; bgmCur.pause(); if (reset) bgmCur = null; }
+// 曲ファイルを鳴らしたら true（合成の曲は止めておく）
+function bgmFileTick(key, mood) {
+  const el = bgmEl(key);
+  if (!el) { bgmFileStop(true); return false; }
+  if (bgmCur !== el) { bgmFileStop(true); bgmCur = el; try { el.currentTime = 0; } catch (e) {} }
+  el.volume = SETTINGS.sound ? clamp(SETTINGS.bgm / 100, 0, 1) * 0.8 : 0;
+  el.playbackRate = mood === 3 ? 0.88 : 1;
+  if (document.hidden) el.pause();
+  else if (el.paused) el.play().catch(() => { el.failed = true; });
+  return true;
+}
+function musicStart() { if (!AU.ctx) return; bgmFileStop(true); AU.playing = true; AU.step = 0; AU.songKey = songKey(); AU.next = AU.ctx.currentTime + 0.08; }
 function musicStop() {
-  AU.playing = false;
+  AU.playing = false; bgmFileStop(false);
   if (!AU.ctx || !AU.mus) return;
   const old = AU.mus, now = AU.ctx.currentTime;
   old.gain.cancelScheduledValues(now); old.gain.setValueAtTime(old.gain.value, now); old.gain.linearRampToValueAtTime(0, now + 0.03);
@@ -610,6 +637,7 @@ function musicTick() {
   const a = AU.ctx, key = songKey(), S = SONG[key];
   if (key !== AU.songKey) { AU.songKey = key; AU.step = 0; }
   const mood = key === 'title' ? 0 : moodIndex();
+  if (bgmFileTick(key, mood)) { AU.next = a.currentTime + 0.05; return; }
   const spb = 60 / (S.tempo * (mood === 3 ? 0.72 : 1)) / 4;
   AU.musLP.frequency.setTargetAtTime([18000, 9000, 2300, 1300][mood], a.currentTime, 0.3);
   if (AU.next < a.currentTime) AU.next = a.currentTime + 0.03;
@@ -2105,6 +2133,15 @@ function drawBoss(c, b) {
     if (P.inv > 0 && hy < 124) hy = fy + b.def.faceR + 30; // 上部の「無敵 ○秒」と重なるときは顔の下に出す
     txt(c, b.kind === 'client' ? '跳ね返して当てろ！' : '顔面チャンス！', fx, hy, F.dg(15), COL.memo, 'center', COL.ink, 4);
   }
+  if (b.gulp) { // 一気飲み：持ち上げたジョッキが的。残り時間の輪が減っていく
+    const m = gulpMug(b), u = clamp(b.gulp.t / b.gulp.dur, 0, 1), pu = Math.sin(G.t * 12) * 2;
+    drawMug(c, m.x, m.y, 1.7);
+    c.save(); c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = 5; circ(c, m.x, m.y, m.r + 10); c.stroke();
+    c.strokeStyle = u > 0.7 ? COL.hanko : COL.memo; c.lineWidth = 4; c.beginPath(); c.arc(m.x, m.y, m.r + 10, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - u)); c.stroke();
+    c.strokeStyle = COL.memo; c.lineWidth = 2; c.setLineDash([5, 4]); circ(c, m.x, m.y, m.r + 16 + pu); c.stroke(); c.setLineDash([]); c.restore();
+    txt(c, 'ジョッキを撃て！', m.x, m.y - m.r - 30, F.dg(14), COL.memo, 'center', COL.ink, 4);
+    txt(c, 'ゴクッ', b.x - 30 + Math.sin(G.t * 9) * 3, b.y + b.def.faceY + 4, F.dg(12), '#fff', 'center', COL.ink, 3);
+  }
   if (b.dash && b.dash.phase === 'tele') {
     const a = 0.25 + 0.2 * Math.sin(G.t * 30);
     c.fillStyle = `rgba(210,51,43,${a})`; c.fillRect(b.dash.tx - 40, b.y, 80, H - b.y);
@@ -2562,7 +2599,7 @@ function bossAttack(b) {
   const faceX = () => b.x, faceY = () => b.y + 20;
   const s2 = G.stage, sk = b.kind === 'senmu' ? { skin: 'mug' } : { word: '決裁' };
   if (name === 'stamp3') {
-    for (let v = 0; v < 3; v++) later(0.3 + v * 0.45, () => { const a = Math.atan2(P.y - faceY(), P.x - faceX()); for (let k = -1; k <= 1; k++) shoot('stamp', faceX(), faceY(), a + k * 0.3, 250, k ? sk : Object.assign({ hard: true }, sk)); sfx('shred'); }); // 真ん中は硬い弾（撃っても消えない）
+    for (let v = 0; v < 3; v++) later(0.3 + v * 0.45, () => { const a = Math.atan2(P.y - faceY(), P.x - faceX()); for (let k = -1; k <= 1; k++) shoot('stamp', faceX(), faceY(), a + k * 0.3, 250, sk); sfx('shred'); });
     open(1.8);
   } else if (name === 'rain') {
     for (let i = 0; i < Math.round((10 + s2 * 3) * D().rain); i++) later(0.2 + i * 0.13, () => shoot('sheet', rnd(WL + 18, WR - 18), 72, Math.PI / 2 + rnd(-0.15, 0.15), rnd(190, 260)));
@@ -2594,6 +2631,9 @@ function bossAttack(b) {
   } else if (name === 'phone') {
     for (let i = 0; i < 2 + s2; i++) later(0.3 + i * 0.45, () => shoot('phone', faceX(), faceY(), Math.atan2(P.y - faceY(), P.x - faceX()) + rnd(-0.5, 0.5), 170, { hard: true, home: 1.5 })); // 追ってくる電話は硬い弾（消せない分、数と追う時間を減らす）
     open(2.2);
+  } else if (name === 'gulp') { // 専務だけ：一気飲み。持ち上げたジョッキを撃てばむせて大きなスキ、間に合わなければ体力回復
+    b.gulp = { t: 0, dur: G.ura ? 2.2 : 2.8 }; b.cast = 0;
+    text('一気！一気！', b.x - 60, b.y + 80, 18, '#ffe27a'); sfx('warn'); tipTrigger('gulp');
   } else if (name === 'dash') {
     b.dash = { phase: 'tele', t: 0, tx: clamp(P.x, WL + 50, WR - 50) };
     sfx('warn');
@@ -2621,6 +2661,7 @@ function bossUpdate(dt) {
       else if (d.phase === 'down') { b.y += 640 * dt; if (Math.random() < 0.6) dust(b.x + rnd(-20, 20), b.y + 60); if (b.y > H - 130) { d.phase = 'up'; G.shake = 8; } }
       else { b.y -= 300 * dt; if (b.y <= b.ty) { b.y = b.ty; b.dash = null; b.openT = 2.6 * D().open; text('スキあり！', b.x, b.y + b.def.faceY - 60, 16, COL.memo); } }
     } else if (b.order) orderUpdate(b, dt);
+    else if (b.gulp) gulpUpdate(b, dt);
     else if (b.lesson) b.x += (W / 2 - b.x) * Math.min(1, dt * 3); // 練習中は真ん中で止まる
     else {
       const sp = b.kind === 'client' ? 1.05 : 0.75;
@@ -2631,7 +2672,7 @@ function bossUpdate(dt) {
     if (b.openT > 0) { b.openT -= dt; b.wasOpen = true; }
     else if (b.wasOpen) { b.wasOpen = false; b.lesson = false; b.atkT = 0.9 * D().gap; }
     b.guard += ((b.openT > 0 ? 0 : 1) - b.guard) * Math.min(1, dt * 10);
-    if (!b.dash && !b.order && b.openT <= 0) { b.atkT -= dt; if (b.atkT <= 0) bossAttack(b); }
+    if (!b.dash && !b.order && !b.gulp && b.openT <= 0) { b.atkT -= dt; if (b.atkT <= 0) bossAttack(b); }
   } else if (b.state === 'ko') {
     b.ko += dt; b.y -= (120 + b.ko * 420) * dt; b.rot += dt * 9; b.x += Math.sin(b.ko * 6) * 2;
     if (Math.random() < 0.5) G.parts.push({ type: 'paper', x: b.x + rnd(-40, 40), y: b.y + rnd(-40, 40), vx: rnd(-200, 200), vy: rnd(-200, 100), life: 1.2, max: 1.2, rot: rnd(0, TAU), vr: rnd(-10, 10), size: rnd(5, 9) });
@@ -2641,6 +2682,23 @@ function bossUpdate(dt) {
   if (b.state === 'fight' && G.itemT <= 0) { spawnItem(true); G.itemT = rnd(5.5, 7.5) * D().item; }
   G.drinkT -= dt;
   if (b.state === 'fight' && G.drinkT <= 0) { addEnt({ type: 'item', kind: 'drink', x: rnd(WL + 60, WR - 60), y: 100, r: 13 }); G.drinkT = rnd(30, 40) * D().drink; }
+}
+// 一気飲みのジョッキ（撃つ的）は顔の右上
+const gulpMug = b => ({ x: b.x + 54, y: b.y + b.def.faceY - 8, r: 18 });
+function gulpUpdate(b, dt) {
+  const g = b.gulp; g.t += dt;
+  b.x += (W / 2 - b.x) * Math.min(1, dt * 2);
+  if (g.t < g.dur) return;
+  b.gulp = null; b.atkT = 0.7 * D().gap; // 飲み干した：体力が戻る
+  const heal = Math.min(2, b.maxHp - b.hp); b.hp += heal;
+  text('プハーッ！おかわり！' + (heal ? `（体力+${heal}）` : ''), b.x, b.y + 80, 17, '#ffe27a'); sfx('boyon');
+}
+// 一気飲み中のジョッキに当たった：むせて長いスキ
+function gulpChoke(b) {
+  b.gulp = null; b.openT = 3.4 * D().open; b.hurt = 0.4;
+  const m = gulpMug(b); sparks(m.x, m.y, 14, '#ffe27a'); ring(m.x, m.y, 70, '#ffe27a', 6); burst(m.x, m.y, 10, '#fff6c8');
+  text('ブホッ！むせた！', b.x, b.y + 80, 20, '#fff'); text('大きなスキ！', b.x, b.y + 104, 16, COL.memo);
+  addScore(3000); G.shake = 12; G.hitstop = 0.06; sfx('bosshit'); Haptic.tap('medium');
 }
 function bossKO() {
   const b = G.boss; if (b.order) endOrder(b, true); b.state = 'ko'; b.ko = 0; b.dash = null; G.queue = [];
@@ -2656,7 +2714,7 @@ function declareOrder(b, def) {
   const list = ORDERS[b.kind], final = b.orderIdx === list.length - 1;
   b.orderIdx = (b.orderIdx || 0) + 1;
   b.order = { id: def.id, name: `【${G.ura ? '裏・' : ''}${def.tag}】${def.name}`, t: -ORDER_CUT, final, endHp: final ? 0 : Math.max(0, b.hp - ORDER_HITS - (G.ura ? 1 : 0) + (b.kind === 'client' ? 1 : 0)), drinkUsed: false, v: 0, et: 0, a: 0 };
-  G.queue = []; b.openT = 0; b.dash = null;
+  G.queue = []; b.openT = 0; b.dash = null; b.gulp = null;
   for (const e of G.ents) if (e.shot || (e.harm && e.type === 'joushi')) { e.dead = true; sparks(e.x, e.y, 2, '#ffe27a'); }
   G.cutin = { kind: b.kind, name: b.order.name, say: def.say, t: 0, no: b.orderIdx };
   tipTrigger('order'); // 説明はカットインが終わってから出る
@@ -3306,6 +3364,7 @@ function collisions() {
       if (b.pierce < 0) b.dead = true;
     }
     const bo = G.boss;
+    if (bo && bo.gulp && !b.dead && !b.hit.has('mug')) { const m = gulpMug(bo); if (Math.hypot(b.x - m.x, b.y - m.y) < m.r + b.r) { b.hit.add('mug'); b.vy = Math.abs(b.vy) * 0.5; gulpChoke(bo); continue; } }
     if (bo && bo.state === 'fight' && !b.dead && !b.hit.has('boss')) {
       const fx = bo.x, fy = bo.y + bo.def.faceY;
       if (Math.hypot(b.x - fx, b.y - fy) < bo.def.faceR + b.r + (bo.guard > 0.5 ? 14 : 0)) {
@@ -3920,9 +3979,9 @@ function render() {
   drawBullets(c);
   drawParts(c);
   drawAimGuide(c);
-  if (P.hbFlash > 0 && !P.charging && G.mode === 'play') {
+  if (G.mode === 'play' || G.mode === 'paused' || G.mode === 'tip') { // 当たり判定は常に表示（撃った直後は濃く）
     const hb = hitbox();
-    c.save(); c.globalAlpha = Math.min(1, P.hbFlash); c.strokeStyle = '#9dffbf'; c.lineWidth = 2.5; c.setLineDash([6, 4]);
+    c.save(); c.globalAlpha = Math.max(P.charging ? 0.35 : 0.55, Math.min(1, P.hbFlash)); c.strokeStyle = '#9dffbf'; c.lineWidth = 2.5; c.setLineDash([6, 4]);
     ell(c, hb.x, hb.y, hb.rx, hb.ry); c.stroke(); c.setLineDash([]);
     c.restore();
   }
@@ -4404,6 +4463,18 @@ const TIPS = [
       drawStamp(c, { x: 104, y: 42, r: 12, rot: 0.4, skin: 'refl', refl: 1 });
       drawStamp(c, { x: 200, y: 122, r: 12, rot: 1.1, skin: 'refl', refl: 0 });
       txt(c, 'ポーン', 52, 96, F.dg(12), '#8fe3ff', 'center', COL.ink, 4);
+    },
+  },
+  {
+    id: 'gulp', title: '専務の一気飲み',
+    body: '専務が<b>ジョッキを持ち上げたら</b>一気飲みの合図。輪が消える前に<b>ジョッキを撃つ</b>と、むせて長いスキができる。間に合わないと<b>体力が回復</b>してしまう。',
+    art(c) {
+      tipFloor(c);
+      const b = { kind: 'senmu', def: BOSSES.senmu, x: 0, y: 0, state: 'fight', guard: 1, cast: 0, hurt: 0, atk: 0, t: 0, gulp: { t: 0.8, dur: 2.8 } };
+      c.save(); c.translate(130, 118); c.scale(0.62, 0.62); drawBoss(c, b); c.restore();
+      const m = { x: 130 + 54 * 0.62, y: 118 + (BOSSES.senmu.faceY - 8) * 0.62 };
+      c.strokeStyle = 'rgba(255,232,150,.6)'; c.lineWidth = 3; c.setLineDash([4, 5]); line(c, 262, 150, m.x + 14, m.y + 6); c.setLineDash([]);
+      drawFat(c, 262, 150, 11, 'fat', 0);
     },
   },
 ];
