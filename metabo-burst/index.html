@@ -183,6 +183,12 @@ body{
 .pause{position:absolute;right:2.6cqw;bottom:2.4cqw;width:10cqw;height:10cqw;border-radius:50%;border:.4cqw solid rgba(255,255,255,.35);background:rgba(16,20,23,.55);color:var(--paper);font-family:var(--f-pixel);font-size:3.6cqw;cursor:pointer}
 @media (prefers-reduced-motion: reduce){.logo .b,.ura,.toast.show,.tut.pop{animation:none}}
 .modes{display:flex;gap:2cqw;justify-content:center;flex-wrap:wrap}
+.ura.locked{color:#8a8f8c;border-color:#4a4f4c;text-shadow:none;animation:none;filter:grayscale(1);opacity:.7}
+.ura.locked small{color:#8a8f8c}
+.modelock{flex-basis:100%;margin:0;text-align:center;font-size:2.8cqw;color:#cfd6d2}
+.cont{display:flex;flex-direction:column;align-items:center;gap:.4cqw;font-family:var(--f-display);font-size:4.2cqw;letter-spacing:.08em;color:#fff;background:rgba(16,20,23,.85);border:.45cqw solid #fff;border-radius:1cqw;padding:1.6cqw 3.6cqw;cursor:pointer}
+.cont small{font-family:var(--f-pixel);font-size:2.6cqw;letter-spacing:0;color:#cfd6d2}
+.cont:focus-visible{outline:.7cqw solid var(--memo);outline-offset:.8cqw}
 .endless{color:#f4d64e;border-color:#f4d64e;text-shadow:0 0 1.6cqw rgba(244,214,78,.7);animation:none}
 .endless small{color:#f6e7a8}
 /* tips：初めて出会った物の説明（ゲームは止まる）と、tips集 */
@@ -224,6 +230,7 @@ body{
 .swho{position:absolute;left:3.4cqw;top:-4.4cqw;padding:.8cqw 3cqw;background:var(--hanko);border:.4cqw solid var(--paper);border-radius:1cqw;font-family:var(--f-display);font-size:3.8cqw;color:#fff}
 .stext{margin:0;font-weight:700;font-size:4.3cqw;line-height:1.75;text-align:left;word-break:auto-phrase;min-height:18cqw}
 .stext b{color:var(--memo)}
+.stext .sh{visibility:hidden}
 .snext{position:absolute;right:3cqw;bottom:1.6cqw;background:none;border:0;color:var(--memo);font-family:var(--f-display);font-size:4cqw;cursor:pointer;opacity:0}
 .snext.ready{opacity:1;animation:sBlink 1s steps(2) infinite}
 @keyframes sBlink{50%{transform:translateY(.8cqw)}}
@@ -255,9 +262,14 @@ body{
       <p class="sub">～決死の退勤エスケープ～</p>
       <p id="heroLine" class="hero"></p>
       <button id="startBtn" class="card" type="button"><span class="l">退勤を打刻</span><span class="r">定時<strong>18:00</strong></span></button>
+      <div id="contRow" class="modes" hidden>
+        <button id="contBtn" class="cont" type="button">つづきから<small id="contSub"></small></button>
+        <button id="contAdBtn" class="adbtn small" type="button"><span class="adtag">広告</span>残機+1で始める</button>
+      </div>
       <div class="modes">
-        <button id="uraBtn" class="ura" type="button">裏モード突入<small>敵1.7倍・<wbr>弾速UP・<wbr>ボス1.3倍硬い</small></button>
+        <button id="uraBtn" class="ura" type="button">裏モード突入<small>敵1.7倍・<wbr>弾速UP・<wbr>ボス強化</small></button>
         <button id="endlessBtn" class="ura endless" type="button">エンドレス残業<small>3面を周回・<wbr>周るほど高得点</small></button>
+        <p id="modesLock" class="modelock" hidden>🔒 通常モードを突破すると解放</p>
       </div>
       <nav class="menu" aria-label="メニュー">
         <button type="button" class="mbtn" id="mHow">遊び方</button>
@@ -3532,6 +3544,7 @@ function drawTut(c) {
 }
 function saveScore() {
   if (G.test || G.bossMode) { G.newRecord = false; return; }
+  if (G.cont) { G.newRecord = false; if (G.best) saveBest(G.best); return; } // つづきからはハイスコア・ランキングの対象外（クリア回数などは残す）
   if (G.daily) { const k = G.daily.key; G.newRecord = G.score > (META.daily[k] || 0); if (G.newRecord) { META.daily[k] = Math.floor(G.score); saveMeta(); } return; }
   recordRank();
   const b = G.best || { stage: 0, pct: 0 }, key = hiKey();
@@ -3707,7 +3720,7 @@ function showOver() {
   ovCause.innerHTML = '<span style="color:var(--hanko);font-family:var(--f-display);font-weight:400">' + (d.type === 'starve' ? '体脂肪率 0%' : '社会的に死亡') + '</span><br>' + (d.type === 'starve' ? CAUSE.starve : (CAUSE[d.by] || CAUSE.pile));
   const remain = (G.endless ? `${G.loop + 1}周目 ` : G.rush ? `ボスラッシュ ${G.rush.i + 1}/${STAGES.length} ` : '') + (G.bossPhase ? 'ボス戦' : `出口まで残り ${Math.max(0, Math.ceil((st.len - G.dist) / 10))}m`);
   setAdButtons();
-  ovStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>到達</dt><dd>${st.name}　${remain}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd>`;
+  ovStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>到達</dt><dd>${st.name}　${remain}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd>`;
   retryBtn.textContent = G.endless ? '1周目から再挑戦' : G.rush ? '1体目から再挑戦' : G.bossMode ? 'もう一度ボスに挑む' : 'このフロアから再挑戦';
   resetShare(); ovOver.hidden = false;
   d.stampTo = stampYFor(ovCause);
@@ -3729,10 +3742,12 @@ function stageClear() {
   const looped = G.endless && G.stage >= STAGES.length - 1;
   if (looped) { G.loop++; if (G.loop >= 1) unlock('loop2'); saveScore(); }
   if ((G.stage >= STAGES.length - 1 && !G.endless) || G.daily) {
+    const locked = !modesUnlocked();
     if (G.daily) unlock('daily');
     else if (!G.test) unlock(G.ura ? 'ura' : 'clear');
     if (!G.test && !G.daily) { if (G.ura) b.uraClears = (b.uraClears || 0) + 1; else b.clears = (b.clears || 0) + 1; b.stage = STAGES.length - 1; b.pct = 100; G.best = b; }
     saveScore();
+    if (locked && modesUnlocked()) toast('裏モード・エンドレス残業 解放！（タイトルから）');
     setTimeout(() => {
       // 通常モードは物語の途中（まだ家に着いていない）。4・5面ができたら本当の帰宅に差し替える
       const cont = !G.daily && storyOn();
@@ -3740,7 +3755,7 @@ function stageClear() {
       endClock.textContent = G.daily ? '今日のお題 クリア' : (cont ? '改札 ' : '帰宅 ') + clockStr();
       endMsg.innerHTML = cont ? storyAfterHTML(st.boss) + `<span class="say">${STORY_CONT}<br><em>（4面へ つづく）</em></span>`
         : HERO.family + '係長、' + (ammo() === 6 ? '体脂肪は<em>満タン</em>のまま帰宅。<br>今夜もビールがうまい。' : `体脂肪は残り<em>${ammo()}/6</em>。<br>ちょっと痩せた気がします。`);
-      endStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd><dt>粉砕した障害</dt><dd>${G.stats.crushed}件</dd><dt>食べた物</dt><dd>${G.stats.items}個</dd>`;
+      endStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd><dt>粉砕した障害</dt><dd>${G.stats.crushed}件</dd><dt>食べた物</dt><dd>${G.stats.items}個</dd>`;
       resetShare(); setAdButtons(); ovEnd.hidden = false; againBtn.focus({ preventScroll: true });
     }, 700);
   } else {
@@ -3798,7 +3813,15 @@ function startStage(i, freshAmmo) {
   if (G.bossMode) { G.bossStart = G.play; startBoss(); setBossModeButtons(); return; } // ボスモードは道中なしでいきなりボス戦
   if (i === 0 && !G.ura && !G.daily && !G.endless && !tutDone()) startTut(); // 通常モードの1面で、まだ見ていない人だけ
 }
-function newRun() { G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.adCos = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
+function newRun() { G.cont = false; G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.adCos = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
+// つづきから：今までに到達した一番先のフロアから。残機は最初と同じ（広告で+1）、脂肪満タン。スコアは記録しない
+function contStage() { return Math.min(STAGES.length - 1, (G.best && G.best.stage) || 0); }
+function startContinue(extraLife) {
+  newRun(); G.cont = true; G.ura = false; G.endless = false; G.test = false; G.score = 0; G.play = 0;
+  G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 };
+  if (extraLife) G.lives = Math.min(LIVES_MAX, LIVES + 1);
+  startStage(contStage(), true);
+}
 function newGame(ura, endless) { newRun(); G.ura = !!ura; G.endless = !!endless; G.test = false; G.score = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 }; G.play = 0; startStage(0, true); }
 function toTitle() {
   endDaily(); G.bossMode = null; G.rush = null; setBossModeButtons(); closePanel(); if (G.tut) endTut(false);
@@ -3855,6 +3878,11 @@ function togglePause() {
 function updateBestLine() {
   const b = G.best;
   bestLine.textContent = !b ? 'まだ誰も無事に帰れていません' : `ハイスコア ${fmt(b.hi || 0)}` + (b.uraHi ? `／裏 ${fmt(b.uraHi)}` : '') + (b.endHi ? `／残業 ${fmt(b.endHi)}` : '') + (b.clears ? `／帰宅 ${b.clears}回` : '');
+  // 1面までしか行っていなければ「つづきから」は出さない
+  const cs = contStage();
+  $('contRow').hidden = cs < 1;
+  $('contSub').textContent = `${STAGES[cs].name}から・記録なし`;
+  updateModeLocks();
 }
 
 function step(dt, rdt) {
@@ -4333,7 +4361,7 @@ const SUITS = {
   wine: { name: 'ワインレッド', dark: '#3b1119', mid: '#6e2232', hi: '#7c2a3c', lapel: '#8f3648', sleeve: '#5c1c2a', edge: '#250a10', pants: '#4f1823', cond: 'nomiss_senmu' },
   royal: { name: '社長室パープル', dark: '#2a1d3d', mid: '#4d3870', hi: '#59427f', lapel: '#6a5194', sleeve: '#40305e', edge: '#1a1226', pants: '#3a2b55', cond: 'nomiss_shacho' },
   sky: { name: 'クールビズ水色', dark: '#2f5068', mid: '#5f8fb0', hi: '#6c9cbd', lapel: '#82afcc', sleeve: '#517d9b', edge: '#1f3647', pants: '#476f8b', cond: 'nomiss_client' },
-  gold: { name: '金ラメスーツ', dark: '#6a4a10', mid: '#b8862a', hi: '#c99634', lapel: '#ddb04c', sleeve: '#9e7322', edge: '#43300a', pants: '#8f6720', stripe: 'rgba(255,244,200,.35)', cond: 'rush' },
+  lame: { name: '金ラメスーツ', dark: '#6a4a10', mid: '#b8862a', hi: '#c99634', lapel: '#ddb04c', sleeve: '#9e7322', edge: '#43300a', pants: '#8f6720', stripe: 'rgba(255,244,200,.35)', cond: 'rush' },
   pin: { name: '勝負のストライプ', dark: '#141a2b', mid: '#2a3352', hi: '#334068', lapel: '#3b4875', sleeve: '#232b45', edge: '#0b0f1a', pants: '#1f2740', stripe: 'rgba(230,236,255,.4)', cond: 'order' },
 };
 const TIES = {
@@ -4343,7 +4371,7 @@ const TIES = {
   gold: { name: '金のネクタイ', col: '#d9a521', edge: '#8a6410', stripe: 'rgba(255,255,255,.6)', cond: 'ad' },
   dot: { name: '水玉ネクタイ', col: '#1f5fa8', edge: '#0f3360', pat: 'dot', stripe: 'rgba(255,255,255,.85)', cond: 'catch' },
   naruto: { name: 'なると柄', col: '#f4efe4', edge: '#b8ab92', pat: 'naruto', stripe: '#e0457b', cond: 'ramen' },
-  black: { name: '黒無地', col: '#18191c', edge: '#050506', stripe: 'rgba(255,255,255,.12)', cond: 'allorder' },
+  plain: { name: '黒無地', col: '#18191c', edge: '#050506', stripe: 'rgba(255,255,255,.12)', cond: 'allorder' },
   orange: { name: '夕焼けストライプ', col: '#d9662a', edge: '#7f3512', stripe: 'rgba(255,240,200,.55)', cond: 'ura1' },
   purple: { name: '裏紫ストライプ', col: '#5a2f86', edge: '#2e1547', stripe: 'rgba(255,190,230,.5)', cond: 'ura2' },
   bow: { name: '蝶ネクタイ', col: '#a3172b', edge: '#5c0b17', shape: 'bow', cond: 'loop2' },
@@ -4356,6 +4384,7 @@ const HEADS = {
   wig: { name: 'ふさふさカツラ', sw: '#1c1712', cond: 'skinny' },
 };
 const COS = { suit: SUITS, tie: TIES, head: HEADS };
+// 解放済み（META.unlocked）は id だけで覚えるので、スーツ・ネクタイ・頭で id を重ねないこと
 const COS_LABEL = { suit: 'スーツ', tie: 'ネクタイ', head: '頭' };
 const SUIT = () => SUITS[META.cos.suit] || SUITS.navy;
 const TIE = () => TIES[META.cos.tie] || TIES.red;
@@ -4378,6 +4407,14 @@ function dailyInfo() {
   return { key, stage: h % 3, ura, uraHeld: uraDay && !ura, mod: MODS[(h >>> 5) % MODS.length], label: `${d.getMonth() + 1}月${d.getDate()}日` };
 }
 function normalCleared() { const b = G.best || {}; return !!(b.clears || META.ach.clear); }
+// 裏モード・エンドレス残業は通常モードを1回クリアすると解放（前の版で裏や2周目まで遊んだ人もそのまま解放）
+function modesUnlocked() { const b = G.best || {}; return normalCleared() || !!(b.uraClears || META.ach.ura || META.ach.loop2); }
+const MODE_LOCK_MSG = '通常モードを突破すると解放';
+function updateModeLocks() {
+  const open = modesUnlocked();
+  for (const id of ['uraBtn', 'endlessBtn']) { const el = $(id); el.classList.toggle('locked', !open); el.setAttribute('aria-disabled', !open); }
+  $('modesLock').hidden = open;
+}
 const NATIVE_RANDOM = Math.random;
 function seeded(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 function startDaily() {
@@ -4444,7 +4481,7 @@ function showBossMode() {
 
 /* ================= ランキング（端末内の上位10件） ================= */
 function recordRank() {
-  if (G.test || G.daily || G.bossMode) return;
+  if (G.test || G.daily || G.bossMode || G.cont) return;
   const board = G.endless ? 'endless' : G.ura ? 'ura' : 'normal', list = META.ranks[board];
   const reach = G.endless ? `${G.loop + 1}周目 ${STAGES[G.stage].name}` : !ovEnd.hidden || G.mode === 'clear' ? '帰宅' : STAGES[G.stage].name;
   const d = new Date(), date = `${d.getMonth() + 1}/${d.getDate()}`;
@@ -4915,7 +4952,7 @@ function drawStoryArt(cvs, page, cine) {
 
 /* ---------- 紙芝居（全画面） ---------- */
 let storyRun = null;
-// HTMLを1字ずつ出す。タグと文字参照はまとめて1つとして扱う
+// HTMLを1字ずつに分ける。タグと文字参照はまとめて1つとして扱う
 const storyTokens = html => html.match(/<[^>]+>|&[^;]+;|[^<&]/g) || [];
 // pages を順に見せ、最後まで見るかスキップしたら done を呼ぶ
 function showStory(pages, done) {
@@ -4933,17 +4970,19 @@ function storyPage() {
   if (pg.fx === 'shake') { stage.classList.add('shake'); sfx('deflate'); Haptic.tap('medium'); }
   else if (pg.fx) { fl.classList.add(pg.fx); sfx(pg.fx === 'red' ? 'hit' : 'gogo'); }
   else sfx('pick');
-  // セリフは1字ずつ。動きを減らす設定なら一度に出す
-  const tk = storyTokens(pg.text); R.tk = tk; R.n = RM ? tk.length : 0;
+  // セリフは1字ずつ。全文を先に組んで改行位置を決め、見えるかどうかだけ切り替える（出す途中で折り返しが動かない）
+  const box = $('storyText');
+  box.innerHTML = storyTokens(pg.text).map(t => t[0] === '<' ? t : `<span class="sh">${t}</span>`).join('');
+  R.tk = [...box.querySelectorAll('.sh')]; R.n = RM ? R.tk.length : 0; R.shown = 0;
   clearInterval(R.timer); storyType();
-  if (R.n < tk.length) R.timer = setInterval(() => { R.n++; storyType(); }, 38);
+  if (R.n < R.tk.length) R.timer = setInterval(() => { R.n++; storyType(); }, 38);
   $('storyNext').textContent = R.i < R.pages.length - 1 ? '▼' : '退勤開始 ▶';
   $('storyNext').focus({ preventScroll: true });
 }
 function storyType() {
   const R = storyRun; if (!R) return;
   const done = R.n >= R.tk.length;
-  $('storyText').innerHTML = R.tk.slice(0, R.n).join('');
+  for (; R.shown < Math.min(R.n, R.tk.length); R.shown++) R.tk[R.shown].classList.remove('sh');
   $('storyNext').classList.toggle('ready', done);
   if (done) clearInterval(R.timer);
 }
@@ -5010,8 +5049,10 @@ $('mRank').addEventListener('click', showRanking);
 $('mAch').addEventListener('click', showAchievements);
 $('mCos').addEventListener('click', showCostume);
 $('mSet').addEventListener('click', showSettings);
-$('uraBtn').addEventListener('click', () => { auInit(); newGame(true); });
-$('endlessBtn').addEventListener('click', () => { auInit(); newGame(false, true); });
+$('uraBtn').addEventListener('click', () => { auInit(); if (!modesUnlocked()) return toast(MODE_LOCK_MSG); newGame(true); });
+$('endlessBtn').addEventListener('click', () => { auInit(); if (!modesUnlocked()) return toast(MODE_LOCK_MSG); newGame(false, true); });
+$('contBtn').addEventListener('click', () => { auInit(); startContinue(false); });
+$('contAdBtn').addEventListener('click', async () => { auInit(); if (await Ads.reward('残機+1で始める')) startContinue(true); else musicResume(); });
 // テスト用：好きなステージから開始（脂肪は満タン、スコアは0から）
 // ブラウザ版だけ Google Play への導線を出す（config.js の PLAY_PUBLIC）
 if (PLAY_PUBLIC && !isNative()) { $('appLink').href = PLAY_URL; $('appLink').hidden = false; }
