@@ -2962,7 +2962,7 @@ function drawDecor(c, d) {
 'use strict';
 /* ================= 生成 ================= */
 function addEnt(o) { o.id = ++G.uid; o.t = 0; o.hurt = 0; G.ents.push(o); return o; }
-function later(t, fn) { G.queue.push({ t, fn }); }
+function later(t, fn, keep) { G.queue.push({ t, fn, keep }); } // keep：tipsを閉じたときも取り消さない（弾を撃たない予定）
 function warnAt(x, delay) { addEnt({ type: 'warn', x, y: 90, life: delay }); }
 function shoot(kind, x, y, ang, spd, extra) {
   const o = { type: kind, x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, shot: true, harm: true, rot: rnd(0, TAU), flip: 0 };
@@ -3137,10 +3137,19 @@ function startBoss() {
   G.boss = { kind: key, def, x: W / 2, y: -170, ty: def.ty || 205, hp: Math.round(def.hp * D().bossHP), maxHp: Math.round(def.hp * D().bossHP), t: 0, state: 'warn', warnT: 2.6, atkT: 1.8, atk: 0, guard: 1, openT: 0, hurt: 0, cast: 0, dash: null, rot: 0, ko: 0, wasOpen: false, miss0: G.stats.miss || 0 };
   sfx('siren'); Haptic.tap('warn'); G.itemT = 5;
 }
+// 初めて見せるギミックを持つ技。tipsは弾を撃つ前、画面が空いたときに出す
+const ATTACK_TIP = { fixed: 'hard', phone: 'hard', bounce: 'refl', gulp: 'gulp', chug: 'gulp', flask: 'flask' };
 function bossAttack(b) {
-  const name = b.def.attacks[b.atk % b.def.attacks.length]; b.atk++;
+  const name = b.def.attacks[b.atk % b.def.attacks.length];
+  const tip = ATTACK_TIP[name];
+  if (tip && SETTINGS.tips && !TIPS_SEEN[tip]) { // 弾が残っているうちは手を止めて待つ（最大3秒）。空いたらtipsを出し、閉じてから間を置いて撃つ
+    b.tipWait = (b.tipWait || 0) + 0.2;
+    if (b.tipWait < 3 && G.ents.some(e => e.shot && e.harm && !e.dead)) { b.atkT = 0.2; return; }
+    b.tipWait = 0; tipTrigger(tip); b.atkT = 1.5; return;
+  }
+  b.atk++;
   b.cast = 0.7; b.atkT = 999;
-  const open = (d, len) => later(d, () => { if (G.boss === b && b.state === 'fight') { b.openT = (len || 2.4) * D().open; text('スキあり！', b.x, b.y + b.def.faceY - 60, 16, COL.memo); } });
+  const open = (d, len) => later(d, () => { if (G.boss === b && b.state === 'fight') { b.openT = (len || 2.4) * D().open; text('スキあり！', b.x, b.y + b.def.faceY - 60, 16, COL.memo); } }, true);
   const faceX = () => b.x, faceY = () => b.y + 20;
   const s2 = G.stage, sk = b.kind === 'senmu' ? { skin: 'mug' } : { word: '決裁' };
   if (name === 'stamp3') {
@@ -3150,8 +3159,8 @@ function bossAttack(b) {
     for (let i = 0; i < Math.round((10 + s2 * 3) * D().rain); i++) later(0.2 + i * 0.13, () => shoot('sheet', rnd(WL + 18, WR - 18), 72, Math.PI / 2 + rnd(-0.15, 0.15), rnd(190, 260)));
     open(2.1);
   } else if (name === 'summon') {
-    later(0.3, () => addEnt({ type: 'joushi', x: WL + 40, y: -40, ty: 250, r: 19, hp: 1, solid: true, harm: true, state: 'enter' }));
-    later(0.8, () => addEnt({ type: 'joushi', x: WR - 40, y: -40, ty: 250, r: 19, hp: 1, solid: true, harm: true, state: 'enter' }));
+    later(0.3, () => addEnt({ type: 'joushi', x: WL + 40, y: -40, ty: 250, r: 19, hp: 1, solid: true, harm: true, state: 'enter' }), true);
+    later(0.8, () => addEnt({ type: 'joushi', x: WR - 40, y: -40, ty: 250, r: 19, hp: 1, solid: true, harm: true, state: 'enter' }), true);
     open(1.0, 2.8);
   } else if (name === 'ring' || name === 'spec') {
     const kind = name === 'ring' ? 'stamp' : 'sheet', n = (name === 'ring' ? 12 : 13) + D().ringN;
@@ -3187,7 +3196,7 @@ function bossAttack(b) {
     open(2.0);
   } else if (name === 'flask') { // 薬師寺だけ：床にフラスコを3つ置く。割れば弾けない。顔も同時に開くので、割るか顔を狙うかを選ぶ
     const n = G.ura ? 4 : 3, side = Math.random() < 0.5 ? 1 : -1;
-    for (let i = 0; i < n; i++) later(0.25 + i * 0.3, () => { const u = n === 1 ? 0.5 : i / (n - 1); throwFlask(b, lerp(WL + 60, WR - 60, side > 0 ? u : 1 - u), rnd(360, 470)); sfx('dash'); });
+    for (let i = 0; i < n; i++) later(0.25 + i * 0.3, () => { const u = n === 1 ? 0.5 : i / (n - 1); throwFlask(b, lerp(WL + 60, WR - 60, side > 0 ? u : 1 - u), rnd(360, 470)); sfx('dash'); }, true);
     text('フラスコを割れ！', W / 2, 300, 18, '#b8ffd8'); tipTrigger('flask');
     open(1.2, 2.6);
   } else if (name === 'zrain') { // 巨大社長：Zの空き瓶が降ってくる。何本かは自分めがけて
@@ -3322,7 +3331,7 @@ function orderUpdate(b, dt) {
     every(ura ? 1.9 : 2.5, () => {
       const n = ura ? 18 : 13, off = rnd(0, TAU);
       for (let i = 0; i < n; i++) { const a = off + i / n * TAU; shoot('stamp', fx, fy, a, 0, { word: '社訓', r: 12, stop: { t: 0.7, wait: 0.55, spd: ura ? 175 : 145, spread: (i % 3 - 1) * 0.12, vx: Math.cos(a) * 190, vy: Math.sin(a) * 190 } }); }
-      sfx('shred'); later(1.25, () => { if (G.boss === b && b.order === s) text('唱和!!', fx, fy - 70, 18, '#fff'); });
+      sfx('shred'); later(1.25, () => { if (G.boss === b && b.order === s) text('唱和!!', fx, fy - 70, 18, '#fff'); }, true);
     });
   } else if (s.id === 'turn') { // 下へ流れる書類が、途中で一斉に向きを変える
     b.x += (W / 2 + Math.sin(s.t * 0.9) * 80 - b.x) * Math.min(1, dt * 2);
@@ -5242,13 +5251,12 @@ function closeTip(never) {
   $('ovTip').hidden = true; G.mode = 'play'; musicResume();
   tipGrace();
 }
-// tipsは弾が出た瞬間に出ることが多く、閉じるとすぐ目の前に弾がある。画面の敵弾を消し、ボスは少し待ってから攻撃を再開する
+// ボスの技のtipsは撃つ前に出す（bossAttack）。それ以外で撃ちかけのときに出ても、閉じたあとに新しい弾は来ない（画面の弾はそのまま）
 function tipGrace() {
-  for (const e of G.ents) if (e.shot && e.harm) { e.dead = true; sparks(e.x, e.y, 2, '#ffe27a'); }
   const b = G.boss;
   if (!G.bossPhase || !b || b.state !== 'fight') return;
-  for (const q of G.queue) q.t += 1.2; // 撃ちかけの連射は消さずに遅らせる（フラスコ投げなども技の形のまま残る）
-  if (b.order) b.order.et = Math.max(b.order.et, 1); // 業務命令は次の弾まで1秒あける
+  G.queue = G.queue.filter(q => q.keep); // 弾を撃つ予定だけ消す（フラスコ投げなど keep のものは残す）
+  if (b.order) b.order.et = Math.max(b.order.et, 1.5);
   else if (!b.gulp && !b.dash) b.atkT = Math.max(b.atkT, 1.5);
 }
 // tips集：出会ったものは絵と説明、まだのものは伏せる
