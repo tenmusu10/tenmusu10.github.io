@@ -525,6 +525,8 @@ function resize() {
   cv.width = ui.width = Math.round(fw * dpr); cv.height = ui.height = Math.round(fh * dpr);
 }
 addEventListener('resize', resize);
+// 文字を焼いた画像は、フォントを読み終えたら作り直す（読み込み前の代わりの書体のまま残さない）
+try { document.fonts.addEventListener('loadingdone', () => { for (const k in SPRITES) if (k.includes('@')) delete SPRITES[k]; for (const k in BUBBLE_W) delete BUBBLE_W[k]; }); } catch (e) {}
 
 /* ================= ストレージ ================= */
 function loadBest() { return Store.get('best', null); }
@@ -1090,8 +1092,8 @@ function shirtModel(B) {
 // 光のにじみは毎フレーム作ると重いので、一度だけ小さな画像に描いて使い回す
 const SPRITES = {};
 // 弾などは一度だけ小さな画像に描いておき、毎フレームはその画像を貼るだけにする（文字や輪の描き直しが重いため）
-function spriteOf(key, w, h, draw) {
-  const sc = Math.max(1, Math.ceil(cv.width / W)), k = key + '@' + sc;
+function spriteOf(key, w, h, draw, scale) {
+  const sc = Math.max(1, Math.ceil((scale || cv.width / W) - 0.01)), k = key + '@' + sc;
   let s = SPRITES[k];
   if (!s) {
     s = document.createElement('canvas'); s.width = Math.ceil(w * sc); s.height = Math.ceil(h * sc);
@@ -1099,6 +1101,10 @@ function spriteOf(key, w, h, draw) {
   }
   return s;
 }
+// 今の拡大率（c の変換）に合わせた解像度の画像。拡大して貼る中ボスや比較画像でもぼやけない
+const spriteFor = (c, key, w, h, draw) => { const m = c.getTransform(); return spriteOf(key, w, h, draw, Math.hypot(m.a, m.b)); };
+// 歩きなどの繰り返す動きを n コマに丸める（ph は角度）。コマごとに一度だけ画像にして使い回すため
+const animFrame = (ph, n) => ((Math.floor(ph / TAU * n) % n) + n) % n;
 // 回転する弾は16方向の画像を先に作っておき、毎フレームは回転なしで貼る
 function blitRot(c, key, d, draw, x, y, rot) {
   const q = ((Math.round(rot * 16 / TAU) % 16) + 16) % 16;
@@ -1144,13 +1150,21 @@ function limb(c, pts, w, col, outline) {
   if (outline) { path(); c.lineWidth = w + 2.4; c.strokeStyle = outline; c.stroke(); }
   path(); c.lineWidth = w; c.strokeStyle = col; c.stroke();
 }
+// 吹き出しは文字ごとに一度だけ画像にして貼る（毎フレームの文字の描画と幅の計測が重いため）
+const BUBBLE_W = {};
 function bubble(c, s, x, y, size) {
-  c.font = F.zk(size || 11); const w = c.measureText(s).width + 14, h = (size || 11) + 10;
-  c.fillStyle = '#fff'; c.strokeStyle = COL.ink; c.lineWidth = 1.6;
-  rr(c, x - w / 2, y - h / 2, w, h, 7); c.fill(); c.stroke();
-  c.beginPath(); c.moveTo(x - 4, y + h / 2 - 1); c.lineTo(x + 2, y + h / 2 + 7); c.lineTo(x + 6, y + h / 2 - 1); c.fill();
-  c.beginPath(); c.moveTo(x - 4, y + h / 2); c.lineTo(x + 2, y + h / 2 + 7); c.lineTo(x + 6, y + h / 2); c.stroke();
-  txt(c, s, x, y + 1, F.zk(size || 11), COL.ink);
+  size = size || 11;
+  const key = size + s, h = size + 10;
+  let w = BUBBLE_W[key];
+  if (w == null) { c.font = F.zk(size); w = BUBBLE_W[key] = c.measureText(s).width + 14; }
+  const bw = w + 4, bh = h + 20; // 枠線としっぽの分
+  c.drawImage(spriteFor(c, 'bub' + key, bw, bh, g => {
+    g.fillStyle = '#fff'; g.strokeStyle = COL.ink; g.lineWidth = 1.6;
+    rr(g, -w / 2, -h / 2, w, h, 7); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(-4, h / 2 - 1); g.lineTo(2, h / 2 + 7); g.lineTo(6, h / 2 - 1); g.fill();
+    g.beginPath(); g.moveTo(-4, h / 2); g.lineTo(2, h / 2 + 7); g.lineTo(6, h / 2); g.stroke();
+    txt(g, s, 0, 1, F.zk(size), COL.ink);
+  }), x - bw / 2, y - bh / 2, bw, bh);
 }
 </script>
 <script>
@@ -1205,7 +1219,29 @@ function celShape(c, shape, cx, cy, rx, ry, shade, k) {
   c.ellipse(cx - rx * 0.16, cy - ry * 0.2, rx * 1.04, ry * 1.04, 0, 0, TAU); c.fill('evenodd');
   c.restore();
 }
-const celEll = (c, x, y, rx, ry, shade, k) => celShape(c, g => g.ellipse(x, y, rx, ry, 0, 0, TAU), x, y, rx, ry, shade, k);
+// 楕円の影は、celShape と同じ三日月の形（単位円から左上へずらした円を抜いた部分）を一度だけ多角形にしておき、
+// 切り抜き（clip）なしで塗る。clip はスマホの GPU で重く、敵やボスの数だけ毎フレーム呼ばれていた
+const CEL_MOON = (() => {
+  const bx = -0.16, by = -0.2, br = 1.04, inB = (x, y) => (x - bx) ** 2 + (y - by) ** 2 < br * br;
+  // 単位円の上で、ずらした円の外に出る範囲の両端を二分法で求める（外に出るのは右下の側）
+  const out = a => !inB(Math.cos(a), Math.sin(a)), mid = Math.atan2(-by, -bx);
+  const edge = (lo, hi) => { for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (out(m)) hi = m; else lo = m; } return hi; };
+  const a0 = edge(mid - Math.PI, mid), a1 = 2 * mid - a0; // 中心を結ぶ線について対称
+  const pts = [], N = 40;
+  for (let i = 0; i <= N; i++) { const a = a0 + (a1 - a0) * i / N; pts.push(Math.cos(a), Math.sin(a)); }
+  // 戻りは、ずらした円の弧（単位円の内側の部分）をたどる
+  const b1 = Math.atan2(pts[pts.length - 1] - by, pts[pts.length - 2] - bx), b0 = Math.atan2(pts[1] - by, pts[0] - bx);
+  let d = b0 - b1; while (d > 0) d -= TAU; while (d < -TAU) d += TAU;
+  for (let i = 1; i < N; i++) { const a = b1 + d * i / N; pts.push(bx + br * Math.cos(a), by + br * Math.sin(a)); }
+  return pts;
+})();
+function celEll(c, x, y, rx, ry, shade, k) {
+  const m = CEL_MOON, a = c.globalAlpha;
+  c.globalAlpha = a * (k == null ? 0.6 : k); c.fillStyle = shade;
+  c.beginPath(); c.moveTo(x + m[0] * rx, y + m[1] * ry);
+  for (let i = 2; i < m.length; i += 2) c.lineTo(x + m[i] * rx, y + m[i + 1] * ry);
+  c.closePath(); c.fill(); c.globalAlpha = a;
+}
 </script>
 <script>
 // メタボリック・バースト：主人公のパーツ（SVG）
@@ -1955,9 +1991,17 @@ function drawJoushi(c, e) {
       const off = (k - 2) * 8, px = -Math.sin(a) * off, py = Math.cos(a) * off;
       line(c, px - Math.cos(a) * 24, py - Math.sin(a) * 24, px - Math.cos(a) * (44 + (k % 2) * 16), py - Math.sin(a) * (44 + (k % 2) * 16));
     }
-    c.rotate(clamp(-e.vx / 560, -0.6, 0.6) * 0.5);
   }
-  const ph = e.t * (dash ? 22 : 12), R = hasParts(), edge = darker(suit, 0.45);
+  const R = hasParts(), st = dash ? 'dash' : e.state === 'aim' ? 'aim' : 'walk', f = animFrame(e.t * (dash ? 22 : 12), WALK_N);
+  blit(c, spriteFor(c, 'joushi' + tout + st + R + f, 60, 80, g => joushiBody(g, f * TAU / WALK_N, st, suit, tout, R)), 0, 0, 60, 80, dash ? clamp(-e.vx / 560, -0.6, 0.6) * 0.5 : 0);
+  c.restore();
+  if (e.state === 'aim') {
+    txt(c, '!', e.x, e.y - 50 + Math.sin(e.t * 20) * 2, F.dg(24), COL.hanko, 'center', '#fff', 4);
+    bubble(c, tout ? '一杯どうっすか！' : '待ちたまえ！', e.x + (e.x < W / 2 ? 34 : -34), e.y - 62, 10);
+  }
+}
+function joushiBody(c, ph, st, suit, tout, R) {
+  const dash = st === 'dash', edge = darker(suit, 0.45);
   for (const s of [-1, 1]) {
     const lift = Math.max(0, Math.sin(ph + (s > 0 ? Math.PI : 0))) * 5;
     if (R) { limbCel(c, [[s * 5, 12], [s * 6, 26 - lift]], 6.5, '#3d434b', '#22262b'); part(c, 'shoe', s * 6.5, 27 - lift, 0, s * 0.55); }
@@ -1968,7 +2012,7 @@ function drawJoushi(c, e) {
   c.fillStyle = '#f2f5f8'; c.beginPath(); c.moveTo(-5, -12); c.lineTo(5, -12); c.lineTo(0, -2); c.closePath(); c.fill();
   c.fillStyle = '#2f5fa8'; c.beginPath(); c.moveTo(-1.8, -10); c.lineTo(1.8, -10); c.lineTo(2.6, 5); c.lineTo(0, 8); c.lineTo(-2.6, 5); c.closePath(); c.fill();
   for (const s of [-1, 1]) {
-    const hand = dash ? [s * 8, 24] : e.state === 'aim' ? [s * 20, -12 + Math.sin(e.t * 30) * 2] : [s * 17, 5 + Math.sin(ph + s) * 3];
+    const hand = dash ? [s * 8, 24] : st === 'aim' ? [s * 20, -12 + Math.sin(ph * 2.5) * 2] : [s * 17, 5 + Math.sin(ph + s) * 3];
     if (R) { limbCel(c, [[s * 12, -8], hand], 6, suit, edge); part(c, 'hand', hand[0], hand[1], 0, s * 0.66); }
     else { limb(c, [[s * 12, -8], hand], 6, suit); c.fillStyle = '#f0c09c'; circ(c, hand[0], hand[1], 3.6); c.fill(); }
   }
@@ -1979,24 +2023,25 @@ function drawJoushi(c, e) {
     for (const s of [-1, 1]) part(c, 'eye', s * 5.2, -20.6, 0, s * 0.55);
     part(c, 'glasses', 0, -20.2, 0, 0.62);
     for (const s of [-1, 1]) part(c, 'brow', s * 6, -25.6, -s * 0.4, s * 0.8);
-    if (dash || e.state === 'aim') part(c, 'mouthOpen', 0, -15, 0, 0.9, 0.95);
+    if (st !== 'walk') part(c, 'mouthOpen', 0, -15, 0, 0.9, 0.95);
     else { c.strokeStyle = '#5c1f1a'; c.lineWidth = 1.4; line(c, -3, -15, 3, -15); }
   } else {
     c.strokeStyle = '#1c1f24'; c.lineWidth = 1.3; c.strokeRect(-8.5, -23, 6.5, 4.5); c.strokeRect(2, -23, 6.5, 4.5);
     c.lineWidth = 1.8; line(c, -9, -27, -3, -24.5); line(c, 9, -27, 3, -24.5);
-    if (dash || e.state === 'aim') { c.fillStyle = '#5c1f1a'; ell(c, 0, -15, 3.2, 2.8); c.fill(); }
+    if (st !== 'walk') { c.fillStyle = '#5c1f1a'; ell(c, 0, -15, 3.2, 2.8); c.fill(); }
     else line(c, -3, -15, 3, -15);
   }
-  c.restore();
-  if (e.state === 'aim') {
-    txt(c, '!', e.x, e.y - 50 + Math.sin(e.t * 20) * 2, F.dg(24), COL.hanko, 'center', '#fff', 4);
-    bubble(c, tout ? '一杯どうっすか！' : '待ちたまえ！', e.x + (e.x < W / 2 ? 34 : -34), e.y - 62, 10);
-  }
 }
+// 雑魚は歩きのコマ（WALK_N）ごとに一度だけ画像にして、毎フレームは貼るだけにする（体数が多いと重いため）
+const WALK_N = 12;
 function drawDrunk(c, e) {
-  c.save(); c.translate(e.x, e.y); c.rotate(Math.sin(e.t * 2.2) * 0.25);
+  const R = hasParts(), f = animFrame(e.t * 7, WALK_N);
+  blit(c, spriteFor(c, 'drunk' + R + f, 64, 80, g => drunkBody(g, f * TAU / WALK_N, R)), e.x, e.y, 64, 80, Math.sin(e.t * 2.2) * 0.25);
+  if ((e.t % 3) < 1.6) bubble(c, 'ヒック', e.x + 28, e.y - 46, 10);
+}
+function drunkBody(c, ph, R) {
   c.fillStyle = 'rgba(25,35,28,.25)'; ell(c, 0, 27, 17, 5); c.fill();
-  const ph = e.t * 7, R = hasParts(), L = R ? limbCel : limb;
+  const L = R ? limbCel : limb;
   for (const s of [-1, 1]) {
     const lift = Math.max(0, Math.sin(ph + (s > 0 ? Math.PI : 0))) * 5;
     if (R) { limbCel(c, [[s * 5, 12], [s * 8, 26 - lift]], 6.5, '#3d434b', '#22262b'); part(c, 'shoe', s * 8.5, 27 - lift, 0, s * 0.55); }
@@ -2015,8 +2060,6 @@ function drawDrunk(c, e) {
     c.strokeStyle = '#1b1c1e'; c.lineWidth = 1.6; line(c, -7, -24, -3, -22); line(c, -7, -20, -3, -22); line(c, 7, -24, 3, -22); line(c, 7, -20, 3, -22);
     c.fillStyle = '#6a2520'; ell(c, 0, -15, 3, 2); c.fill();
   }
-  c.restore();
-  if ((e.t % 3) < 1.6) bubble(c, 'ヒック', e.x + 28, e.y - 46, 10);
 }
 function drawBelt(c, e) {
   const x = e.x - e.w / 2, y = e.y - e.h / 2;
@@ -2134,6 +2177,14 @@ function drawBucho(c, e) {
     c.fillStyle = FA; c.strokeStyle = '#b57e5c'; c.lineWidth = 1.2; circ(c, s * 76, hy, 8); c.fill(); c.stroke();
     for (let k = -1; k <= 1; k++) { circ(c, s * 83, hy + k * 4.5, 2.6); c.fill(); c.stroke(); }
   }
+  // 胴体と頭は動かないので、見た目ごとに一度だけ画像にして貼る
+  blit(c, spriteFor(c, 'bucho' + SU + SE + TI + FA + R, 96, 108, g => buchoTop(g, SU, SE, TI, FA, R)), 0, 0, 96, 108);
+  c.globalAlpha = 1;
+  for (let i = 0; i < e.max; i++) { c.fillStyle = i < e.hp ? COL.hanko : 'rgba(30,30,30,.35)'; circ(c, -(e.max - 1) * 7 + i * 14, -60, 4.6); c.fill(); }
+  c.restore();
+  if ((e.t % 4) < 2.4) bubble(c, e.say || 'ちょっといいかな？', e.x, e.y - 82, 11);
+}
+function buchoTop(c, SU, SE, TI, FA, R) {
   c.fillStyle = SU; ell(c, 0, 2, 44, 31); c.fill(); c.strokeStyle = SE; c.lineWidth = 1.5; c.stroke();
   if (R) celEll(c, 0, 2, 44, 31, SE, 0.55);
   c.fillStyle = '#f5f3ec'; ell(c, 0, 8, 27, 22); c.fill();
@@ -2152,15 +2203,23 @@ function drawBucho(c, e) {
   }
   c.fillStyle = '#1b1c1e'; ell(c, -4.5, -27, 5, 2.2, 0.25); c.fill(); ell(c, 4.5, -27, 5, 2.2, -0.25); c.fill();
   c.strokeStyle = '#6a2520'; c.lineWidth = 1.5; c.beginPath(); c.arc(0, -25, 4, 0.3, Math.PI - 0.3); c.stroke();
-  c.globalAlpha = 1;
-  for (let i = 0; i < e.max; i++) { c.fillStyle = i < e.hp ? COL.hanko : 'rgba(30,30,30,.35)'; circ(c, -(e.max - 1) * 7 + i * 14, -60, 4.6); c.fill(); }
-  c.restore();
-  if ((e.t % 4) < 2.4) bubble(c, e.say || 'ちょっといいかな？', e.x, e.y - 82, 11);
 }
 function drawCoworker(c, e) {
   c.save(); c.translate(e.x, e.y); c.globalAlpha = 0.75;
+  const R = hasParts();
+  blit(c, spriteFor(c, 'coworker' + R, 84, 52, g => coworkerBody(g, R)), 0, 0, 84, 52); // 倒れた体は動かないので一度だけ画像にする
+  // 魂
+  const u = (e.t * 0.6) % 1, gy = -16 - u * 34, ga = Math.sin(u * Math.PI) * 0.8;
+  c.globalAlpha = ga * 0.75; c.fillStyle = '#fff';
+  c.beginPath(); c.arc(-4, gy, 6, Math.PI, 0); c.quadraticCurveTo(4, gy + 10, -4 + Math.sin(e.t * 6) * 4, gy + 14); c.quadraticCurveTo(-10, gy + 8, -10, gy); c.fill();
+  c.strokeStyle = '#f4d64e'; c.lineWidth = 1.3; ell(c, -4, gy - 9, 5, 1.6); c.stroke();
+  c.fillStyle = COL.tie; c.fillRect(-5, gy + 2, 2, 5);
+  c.globalAlpha = 1;
+  c.restore();
+}
+function coworkerBody(c, R) {
   c.fillStyle = 'rgba(25,35,28,.22)'; ell(c, 2, 6, 32, 8); c.fill();
-  const R = hasParts(), L = R ? limbCel : limb, NE = darker(COL.navy, 0.4);
+  const L = R ? limbCel : limb, NE = darker(COL.navy, 0.4);
   L(c, [[8, 0], [30, 3]], 8, COL.navy, NE); L(c, [[8, 4], [29, 9]], 8, COL.navy, NE);
   // 倒れているので靴は横向き（つま先が上）
   if (R) { part(c, 'shoe', 33, 3, -Math.PI / 2, 0.5); part(c, 'shoe', 32, 10, -Math.PI / 2, 0.5); }
@@ -2172,14 +2231,6 @@ function drawCoworker(c, e) {
   c.fillStyle = '#2d2c2b'; c.beginPath(); c.arc(-23, 1, 8.8, Math.PI * 0.6, Math.PI * 1.4); c.fill();
   c.strokeStyle = '#1b1c1e'; c.lineWidth = 1.2;
   for (const yy of [-2.5, 3]) { line(c, -19, yy - 1.5, -16, yy + 1.5); line(c, -19, yy + 1.5, -16, yy - 1.5); }
-  // 魂
-  const u = (e.t * 0.6) % 1, gy = -16 - u * 34, ga = Math.sin(u * Math.PI) * 0.8;
-  c.globalAlpha = ga * 0.75; c.fillStyle = '#fff';
-  c.beginPath(); c.arc(-4, gy, 6, Math.PI, 0); c.quadraticCurveTo(4, gy + 10, -4 + Math.sin(e.t * 6) * 4, gy + 14); c.quadraticCurveTo(-10, gy + 8, -10, gy); c.fill();
-  c.strokeStyle = '#f4d64e'; c.lineWidth = 1.3; ell(c, -4, gy - 9, 5, 1.6); c.stroke();
-  c.fillStyle = COL.tie; c.fillRect(-5, gy + 2, 2, 5);
-  c.globalAlpha = 1;
-  c.restore();
 }
 const ITEM_STYLE = {
   onigiri: { glow: '70,225,130', ring: 'rgba(150,255,190,.95)', col: '#178a48', badge: '+1', label: 'おにぎり' },
