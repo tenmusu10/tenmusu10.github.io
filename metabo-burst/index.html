@@ -2514,16 +2514,18 @@ function drawBoss(c, b) {
     c.strokeStyle = COL.hanko; c.lineWidth = 2.5; c.setLineDash([7, 5]); circ(c, 0, 0, r); c.stroke(); c.setLineDash([]);
     for (let k = 0; k < 4; k++) { c.rotate(Math.PI / 2); line(c, r - 5, 0, r + 6, 0); }
     c.restore();
-    if (b.kind === 'client' && (!G.ura || b.atk <= 2) && G.mode === 'play') { // 壁で跳ね返す道筋のお手本
-      const lp = launchPoint(), side = lp.x < W / 2 ? WL + 14 : WR - 14, mx = 2 * side - fx;
-      const t = (side - lp.x) / (mx - lp.x), wy = lp.y + (fy - lp.y) * t;
-      c.save(); c.globalAlpha = 0.75 + 0.25 * Math.sin(G.t * 6); c.strokeStyle = COL.memo; c.lineWidth = 3; c.setLineDash([7, 7]); c.lineDashOffset = -G.t * 40;
-      c.beginPath(); c.moveTo(lp.x, lp.y); c.lineTo(side, wy); c.lineTo(fx, fy); c.stroke(); c.setLineDash([]);
-      txt(c, 'このコースで狙え', (lp.x + side) / 2, (lp.y + wy) / 2, F.zk(12), COL.memo, 'center', COL.ink, 4); c.restore();
+    if (b.kind === 'client' && b.lesson && !P.charging && G.mode === 'play') { // 練習中（弾が来ない）だけ、壁で跳ね返す道筋のお手本を左右両方に。それ以降は自分の狙い線が「当たる！」で知らせる
+      const lp = launchPoint();
+      c.save(); c.globalAlpha = 0.5 + 0.2 * Math.sin(G.t * 6); c.strokeStyle = COL.memo; c.lineWidth = 2.5; c.setLineDash([7, 7]); c.lineDashOffset = -G.t * 40;
+      for (const side of [WL + 14, WR - 14]) {
+        const mx = 2 * side - fx, wy = lp.y + (fy - lp.y) * (side - lp.x) / (mx - lp.x);
+        c.beginPath(); c.moveTo(lp.x, lp.y); c.lineTo(side, wy); c.lineTo(fx, fy); c.stroke();
+      }
+      c.setLineDash([]); c.restore();
     }
     let hy = fy - b.def.faceR - 26;
     if (P.inv > 0 && hy < 124) hy = fy + b.def.faceR + 30; // 上部の「無敵 ○秒」と重なるときは顔の下に出す
-    txt(c, b.kind === 'client' ? '跳ね返して当てろ！' : '顔面チャンス！', fx, hy, F.dg(15), COL.memo, 'center', COL.ink, 4);
+    txt(c, b.kind === 'client' ? (P.aimHit ? '当たる！' : '跳ね返して当てろ！') : '顔面チャンス！', fx, hy, F.dg(15), COL.memo, 'center', COL.ink, 4);
   }
   if (b.gulp) { // 一気飲み：持ち上げたジョッキが的。残り時間の輪が減っていく
     const m = gulpMug(b), u = clamp(b.gulp.t / b.gulp.dur, 0, 1), pu = Math.sin(G.t * 12) * 2;
@@ -4427,17 +4429,26 @@ function step(dt, rdt) {
 'use strict';
 /* ================= 描画 ================= */
 function drawAimGuide(c) {
-  if (!P.charging) return;
+  if (!P.charging) { P.aimHit = false; return; }
   const lp = launchPoint();
   let x = lp.x, y = lp.y, vx = P.aim.x, vy = P.aim.y;
-  const len = 260 + P.pullAmt * 420;
-  c.fillStyle = '#fff';
-  for (let d = 0, k = 0; d < len && y > 70; d += 6, k++) {
+  const len = 260 + P.pullAmt * 420, pts = [];
+  // 2面のクライアントの顔が開いている間：壁で跳ねてから顔に届くコースなら狙い線を黄色にする（左右どちらの壁でもよい）
+  const bo = G.boss, cl = bo && bo.kind === 'client' && bo.state === 'fight' && bo.guard < 0.35, fx = cl && bo.x, fy = cl && bo.y + bo.def.faceY;
+  let bounced = false, hit = false;
+  for (let d = 0; d < (cl ? 1400 : len) && y > 70; d += 6) { // 弾と同じく半径14で壁に当てる
     x += vx * 6; y += vy * 6;
-    if (x < WL + 7) { x = WL + 7; vx = Math.abs(vx); } if (x > WR - 7) { x = WR - 7; vx = -Math.abs(vx); }
-    if (k % 3 === 0) { c.globalAlpha = (1 - d / len) * 0.9; circ(c, x, y, 2.6 - d / len * 1.4); c.fill(); }
+    if (x < WL + 14) { x = WL + 14; vx = Math.abs(vx); bounced = true; } if (x > WR - 14) { x = WR - 14; vx = -Math.abs(vx); bounced = true; }
+    if (d < len) pts.push(x, y);
+    if (cl && bounced && Math.hypot(x - fx, y - fy) < bo.def.faceR + 14) { hit = true; break; }
+  }
+  c.fillStyle = hit ? COL.memo : '#fff';
+  for (let i = 0, k = 0; i < pts.length; i += 2, k++) {
+    const d = k * 6;
+    if (k % 3 === 0) { c.globalAlpha = (1 - d / len) * 0.9; circ(c, pts[i], pts[i + 1], 2.6 - d / len * 1.4 + (hit ? 0.6 : 0)); c.fill(); }
   }
   c.globalAlpha = 1;
+  P.aimHit = hit; // 顔の上の「跳ね返して当てろ！」を次のフレームから「当たる！」にする
   if (ptr && ptr.mode === 'pull') {
     c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 2; c.setLineDash([4, 4]);
     line(c, ptr.sx, ptr.sy, ptr.x, ptr.y); c.setLineDash([]);
