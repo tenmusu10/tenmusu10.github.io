@@ -3253,7 +3253,7 @@ function bossUpdate(dt) {
     if (Math.abs(b.y - b.ty) < 3 && !G.bossIntro) {
       b.state = 'fight';
       // 2面のクライアント（通常・1周目）は最初だけ顔を開けて待つ：跳ね返しの練習。最初の1発が当たるか8秒で終わる
-      tipTrigger('boss');
+      tipTrigger('boss'); if (b.kind === 'client') tipTrigger('bank');
       if (b.kind === 'client' && !G.ura && !G.loop) { b.lesson = true; b.openT = 8; text('今は無防備！', W / 2, b.y + 120, 18, COL.memo, { life: 2.6, max: 2.6 }); }
     }
   } else if (b.state === 'fight') {
@@ -5270,6 +5270,29 @@ const TIPS = [
       c.save(); c.translate(160, 118); c.scale(0.68, 0.68);
       drawBoss(c, { kind: 'shacho', def, x: 0, y: 0, state: 'fight', guard: 0, cast: 0, hurt: 0, atk: 0 });
       c.restore();
+    },
+  },
+  {
+    id: 'bank', title: '跳ね返して当てる（2面ボス）',
+    body: '無理田は<b>正面からの脂肪弾をはじく</b>。<b>左右どちらの壁</b>で跳ね返してもいいので、跳ねた弾を顔に当てよう。ためている間の狙い線が<b>黄色くなれば当たるコース</b>。',
+    art(c) {
+      tipFloor(c);
+      c.fillStyle = '#23282c'; c.fillRect(0, 0, 18, TIP_H); c.fillRect(TIP_W - 18, 0, 18, TIP_H);
+      c.fillStyle = COL.memo; c.fillRect(17, 0, 2, TIP_H); c.fillRect(TIP_W - 19, 0, 2, TIP_H); // 壁
+      const def = BOSSES.client, sc = 0.5, bx = 196, by = 104, fx = bx, fy = by + def.faceY * sc;
+      c.save(); c.translate(bx, by); c.scale(sc, sc); drawBoss(c, { kind: 'client', def, x: 0, y: 0, state: 'fight', guard: 0.4, cast: 0, hurt: 0, atk: 0, t: 0 }); c.restore();
+      // 左：壁で跳ねて顔に届く狙い線（黄色）。右：まっすぐはじかれる
+      const sx = 92, sy = 150, side = 18 + 14, wy = sy + (fy - sy) * (side - sx) / (2 * side - fx - sx);
+      c.fillStyle = COL.memo;
+      for (const [ax, ay, bx2, by2] of [[sx, sy, side, wy], [side, wy, fx, fy]]) for (let k = 0.08; k < 1.01; k += 0.115) { circ(c, ax + (bx2 - ax) * k, ay + (by2 - ay) * k, 2.6); c.fill(); }
+      drawFat(c, sx, sy, 11, 'fat', 0);
+      txt(c, '当たる！', fx - 74, fy - 6, F.dg(13), COL.memo, 'center', COL.ink, 4);
+      // 右：顔の真下から垂直に撃つと顔の前で止められる（×印）。跳ね返りに見えないよう折れ線にしない
+      const qx = fx, qy = 156, hx = fx, hy = fy + 20;
+      c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 3; c.setLineDash([4, 5]); line(c, qx, qy - 12, hx, hy + 10); c.setLineDash([]);
+      drawFat(c, qx, qy, 11, 'fat', 0);
+      c.lineCap = 'round'; for (const [col, lw] of [[COL.ink, 6], ['#ff8d84', 3]]) { c.strokeStyle = col; c.lineWidth = lw; line(c, hx - 8, hy - 8, hx + 8, hy + 8); line(c, hx + 8, hy - 8, hx - 8, hy + 8); }
+      txt(c, 'まっすぐは はじく', fx + 74, fy - 14, F.dg(11), '#ff8d84', 'center', COL.ink, 4);
     },
   },
   {
