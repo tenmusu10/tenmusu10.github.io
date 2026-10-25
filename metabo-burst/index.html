@@ -1108,7 +1108,7 @@ function mockAd(label) {
 const PLAY_IDS = {
   boards: { normal: 'CggIr864928QAhAA', ura: 'CggIr864928QAhAB', endless: 'CggIr864928QAhAC' },
   ach: {
-    clear: 'CggIr864928QAhAK', ura: 'CggIr864928QAhAU', heavy: 'CggIr864928QAhAM', skinny: 'CggIr864928QAhAE', combo10: 'CggIr864928QAhAR', graze100: 'CggIr864928QAhAW', face10: 'CggIr864928QAhAV', mid3: 'CggIr864928QAhAF', burn: 'CggIr864928QAhAG', catch: 'CggIr864928QAhAX', ramen: 'CggIr864928QAhAT',
+    clear: 'CggIr864928QAhAK', easy: 'CggIr864928QAhAc', ura: 'CggIr864928QAhAU', heavy: 'CggIr864928QAhAM', skinny: 'CggIr864928QAhAE', combo10: 'CggIr864928QAhAR', graze100: 'CggIr864928QAhAW', face10: 'CggIr864928QAhAV', mid3: 'CggIr864928QAhAF', burn: 'CggIr864928QAhAG', catch: 'CggIr864928QAhAX', ramen: 'CggIr864928QAhAT',
     score100k: 'CggIr864928QAhAD', daily: 'CggIr864928QAhAJ', order: 'CggIr864928QAhAN', loop2: 'CggIr864928QAhAY', nomiss_shacho: 'CggIr864928QAhAO', nomiss_client: 'CggIr864928QAhAP', nomiss_senmu: 'CggIr864928QAhAQ', nomiss_yakushiji: 'CggIr864928QAhAZ', nomiss_kyoshacho: 'CggIr864928QAhAa', allorder: 'CggIr864928QAhAI', ura1: 'CggIr864928QAhAS', ura2: 'CggIr864928QAhAL', rush: 'CggIr864928QAhAH',
   },
 };
@@ -4222,7 +4222,7 @@ function stageClear() {
   if ((G.stage >= STAGES.length - 1 && !G.endless) || G.daily) {
     const locked = !modesUnlocked();
     if (G.daily) unlock('daily');
-    else if (!G.test && !G.easy) unlock(G.ura ? 'ura' : 'clear');
+    else if (!G.test) unlock(G.ura ? 'ura' : G.easy ? 'easy' : 'clear');
     if (!G.test && !G.daily) { const ck = G.ura ? 'uraClears' : G.easy ? 'easyClears' : 'clears'; b[ck] = (b[ck] || 0) + 1; b.stage = STAGES.length - 1; b.pct = 100; G.best = b; }
     saveScore();
     if (locked && modesUnlocked()) toast('裏モード・エンドレス残業 解放！（タイトルから）');
@@ -4887,6 +4887,7 @@ function saveMeta() { Store.set('meta', META); }
 const ACHS = [
   { id: 'clear', name: '無事帰宅', desc: '通常モードを全ステージ突破' },
   { id: 'ura', name: '裏の帰宅者', desc: '裏モードを全ステージ突破' },
+  { id: 'easy', name: 'かんたん帰宅', desc: 'かんたんモードを全ステージ突破' },
   { id: 'heavy', name: '98kgの意地', desc: '体脂肪6のままステージをクリア' },
   { id: 'skinny', name: 'ギリギリの細身', desc: '体脂肪1以下でステージをクリア' },
   { id: 'combo10', name: '暴走機関車', desc: '無敵中に10コンボ' },
