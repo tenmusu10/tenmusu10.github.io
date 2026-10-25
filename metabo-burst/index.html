@@ -106,8 +106,10 @@ body{
 /* メニュー・パネル */
 .menu{display:flex;flex-wrap:wrap;justify-content:center;gap:1.4cqw;max-width:92cqw}
 .mbtn{font-family:var(--f-body);font-weight:700;font-size:3.3cqw;color:var(--paper);background:rgba(255,255,255,.1);border:.3cqw solid rgba(255,255,255,.3);border-radius:5cqw;padding:1.3cqw 3cqw;cursor:pointer}
-.mmain{display:flex;gap:1.6cqw;justify-content:center;flex-basis:100%;margin-bottom:.6cqw}
-.mbig{flex:1;max-width:28cqw;font-family:var(--f-display);font-size:3.8cqw;letter-spacing:.04em;color:var(--paper);background:rgba(16,20,23,.8);border:.4cqw solid rgba(255,255,255,.55);border-radius:1.4cqw;padding:2.4cqw 1cqw;cursor:pointer}
+.mmain{display:flex;flex-wrap:wrap;gap:1.6cqw;justify-content:center;flex-basis:100%;margin-bottom:.6cqw}
+/* 端末の文字サイズ設定（Android の「フォントサイズ」は WebView の文字にも掛かる）で大きくなっても、字の途中で折り返さない。
+   入りきらないときはボタンが幅を広げ、それでも並ばなければボタンごと次の行へ送る（min-width は max-width より強い） */
+.mbig{flex:1 1 0;min-width:max-content;white-space:nowrap;max-width:28cqw;font-family:var(--f-display);font-size:3.8cqw;letter-spacing:.04em;color:var(--paper);background:rgba(16,20,23,.8);border:.4cqw solid rgba(255,255,255,.55);border-radius:1.4cqw;padding:2.4cqw 1cqw;cursor:pointer}
 .mbig:active{transform:translateY(.5cqw)}
 .mbig:focus-visible{outline:.6cqw solid var(--memo);outline-offset:.5cqw}
 .mmore{display:flex;flex-wrap:wrap;justify-content:center;gap:1.4cqw;flex-basis:100%}
