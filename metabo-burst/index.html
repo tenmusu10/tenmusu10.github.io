@@ -56,13 +56,16 @@ body{
 .ov{
   position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:3.2cqw;text-align:center;overflow:auto;
+  justify-content:safe center; /* 入りきらないとき上が切れてスクロールでも戻れなくならないように（未対応の端末は上の center のまま） */
   padding-block:6cqw;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
 }
 .ov.dim{background:linear-gradient(180deg,rgba(12,16,19,.94) 0%,rgba(12,16,19,.86) 58%,rgba(12,16,19,.25) 100%)}
 .ov.low{justify-content:flex-end;padding-bottom:9cqw;background:linear-gradient(180deg,transparent 0%,transparent 45%,rgba(12,16,19,.92) 70%)}
 .ov.full{background:rgba(12,16,19,.9)}
 .kicker{font-family:var(--f-pixel);font-size:3.4cqw;letter-spacing:.18em;color:var(--memo)}
-.logo{position:relative;margin:0;line-height:1;font-weight:400;font-family:var(--f-display);text-wrap:balance}
+.logo{position:relative;max-width:100%;margin:0;line-height:1;font-weight:400;font-family:var(--f-display);text-wrap:balance}
+/* ロゴは字の途中で折り返さない。端末の文字サイズ設定で幅からはみ出すときは ui.js の fitLogo が縮める */
+.logo .a,.logo .b{white-space:nowrap}
 .logo .a{display:block;font-size:10.5cqw;letter-spacing:.02em;color:var(--paper);text-shadow:.7cqw .7cqw 0 var(--hanko)}
 .logo .b{display:block;font-size:19cqw;letter-spacing:-.01em;color:var(--hanko);-webkit-text-stroke:.5cqw var(--paper);paint-order:stroke fill;text-shadow:1cqw 1.1cqw 0 rgba(0,0,0,.45);transform:rotate(-3deg);margin-top:1cqw;animation:burst 1.8s ease-in-out infinite}
 @keyframes burst{0%,100%{transform:rotate(-3deg) scale(1)}8%{transform:rotate(-1deg) scale(1.08,.94)}14%{transform:rotate(-4deg) scale(.97,1.04)}20%{transform:rotate(-3deg) scale(1)}}
@@ -5763,6 +5766,18 @@ $('normalBtn').addEventListener('click', () => { auInit(); startWithStory(false)
 $('mHow').addEventListener('click', showHow);
 function setMoreMenu(open) { $('moreMenu').hidden = !open; $('mMore').setAttribute('aria-expanded', open); $('mMore').textContent = open ? 'その他 ▴' : 'その他 ▾'; }
 $('mMore').addEventListener('click', () => setMoreMenu($('moreMenu').hidden));
+// 端末の文字サイズ設定（Android の「フォントサイズ」）で大きくなったロゴが幅からはみ出すときだけ、収まる大きさまで縮める。
+// 表示されたとき・文字の大きさが変わったときに .logo の大きさが変わるので、それを見て合わせ直す
+function fitLogo() {
+  for (const el of document.querySelectorAll('.logo .a, .logo .b')) {
+    el.style.fontSize = '';
+    if (!el.clientWidth || el.scrollWidth <= el.clientWidth) continue; // 非表示のときは 0
+    el.style.fontSize = parseFloat(getComputedStyle(el).fontSize) * el.clientWidth / el.scrollWidth * 0.97 + 'px';
+  }
+}
+try { const ro = new ResizeObserver(() => requestAnimationFrame(fitLogo)); ro.observe(document.querySelector('.logo')); } catch (e) {}
+try { document.fonts.addEventListener('loadingdone', fitLogo); } catch (e) {}
+addEventListener('resize', () => requestAnimationFrame(fitLogo)); // 縮めた後は px 指定なので、画面が広がったときは .logo の大きさが変わらず上では気づけない
 $('tutSkip').addEventListener('click', () => endTut(false));
 $('tutNext').addEventListener('click', () => { $('tutNext').blur(); if (G.tut && G.tut.wait) nextTutStep(); }); // フォーカスを残すと Space で押されてしまう
 $('tutNever').addEventListener('click', () => { endTut(false, true); toast('チュートリアルは設定からまた表示できます'); });
