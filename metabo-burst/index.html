@@ -4914,9 +4914,9 @@ function unlock(id) {
   if (G.test || META.ach[id] || (G.easy && EASY_NO_ACH.test(id))) return;
   META.ach[id] = Date.now(); saveMeta();
   const a = ACHS.find(x => x.id === id);
-  toast('実績解除：' + a.name);
-  GameServices.unlock(id);
-  for (const kind in COS) for (const k in COS[kind]) if (COS[kind][k].cond === id) toast('着せ替え解放：' + COS[kind][k].name);
+  achQ.push({ ach: a.name, play: id });
+  for (const kind in COS) for (const k in COS[kind]) if (COS[kind][k].cond === id) achQ.push({ cos: COS[kind][k].name });
+  if (!toastOn) nextToast();
 }
 function countUp(key, goal, id) { META.tot[key] = (META.tot[key] || 0) + 1; saveMeta(); if (META.tot[key] >= goal) unlock(id); }
 
@@ -5272,9 +5272,25 @@ function showCredits() {
 
 /* ================= 通知 ================= */
 let toastQ = [], toastOn = false;
+// 実績・着せ替えの解放はプレイ中には出さずにためて、クリア・ゲームオーバー・タイトルでまとめて出す（連続で上を隠さないように）
+// Play ゲームの解除もここで送る。Play 側のポップアップも上に出るので、プレイ中には出さない
+let achQ = [];
 function toast(msg) { toastQ.push(msg); if (!toastOn) nextToast(); }
+function joinNames(label, names) {
+  return label + '：' + (names.length <= 2 ? names.join('・') : `${names[0]} ほか${names.length - 1}件`);
+}
+function flushAch() {
+  const achs = achQ.filter(x => x.ach), coss = achQ.filter(x => x.cos);
+  for (const x of achs) GameServices.unlock(x.play);
+  achQ = [];
+  if (achs.length) toastQ.push(joinNames('実績解除', achs.map(x => x.ach)));
+  if (coss.length) toastQ.push(joinNames('着せ替え解放', coss.map(x => x.cos)));
+}
 function nextToast() {
   const el = $('toast');
+  const inRun = G.mode === 'play' || G.mode === 'paused' || G.mode === 'tip';
+  if (achQ.length && !inRun) flushAch();
+  if (!toastQ.length && achQ.length) { toastOn = true; setTimeout(nextToast, 500); return; } // ためた実績はプレイが終わるのを待つ
   if (!toastQ.length) { toastOn = false; return; }
   toastOn = true;
   // ボス戦中は上部の命令名・残り秒を隠さないよう、終わるまでためておく
