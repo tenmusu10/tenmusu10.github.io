@@ -97,6 +97,18 @@ body{
 .ura{display:flex;flex-direction:column;align-items:center;gap:.4cqw;font-family:var(--f-display);font-size:4.2cqw;letter-spacing:.08em;color:var(--hanko);background:#0b0607;border:.45cqw solid var(--hanko);border-radius:1cqw;padding:1.6cqw 3.6cqw;cursor:pointer;text-shadow:0 0 1.6cqw rgba(210,51,43,.8);animation:flick 3.2s steps(1) infinite}
 .ura small{font-family:var(--f-pixel);font-size:2.6cqw;letter-spacing:0;color:#f3b3ae;text-shadow:none}
 .ura:focus-visible{outline:.7cqw solid var(--memo);outline-offset:.8cqw}
+/* かんたんモード：裏モードと並べて、やさしい色で */
+.easy{display:flex;flex-direction:column;align-items:center;gap:.4cqw;font-family:var(--f-display);font-size:4.2cqw;letter-spacing:.08em;color:#e8f6ec;background:#123a26;border:.45cqw solid #3fae6c;border-radius:1cqw;padding:1.6cqw 3.6cqw;cursor:pointer}
+.easy small{font-family:var(--f-pixel);font-size:2.6cqw;letter-spacing:0;color:#a9dcbc;word-break:keep-all;overflow-wrap:anywhere}
+.easy:focus-visible{outline:.7cqw solid var(--memo);outline-offset:.8cqw}
+.easy:active{transform:translateY(.5cqw)}
+/* 難易度の選択（打刻ボタンの下に開く）。前回の方に印 */
+.diffs{display:flex;gap:2cqw;justify-content:center;flex-wrap:wrap}
+.normal{display:flex;flex-direction:column;align-items:center;gap:.4cqw;font-family:var(--f-display);font-size:4.2cqw;letter-spacing:.08em;color:var(--paper);background:#24282a;border:.45cqw solid #b9b3a1;border-radius:1cqw;padding:1.6cqw 3.6cqw;cursor:pointer}
+.normal small{font-family:var(--f-pixel);font-size:2.6cqw;letter-spacing:0;color:#cfcabb}
+.normal:focus-visible{outline:.7cqw solid var(--memo);outline-offset:.8cqw}
+.normal:active{transform:translateY(.5cqw)}
+.diffs .last{box-shadow:0 0 0 .5cqw var(--memo)}
 @keyframes flick{0%,100%{opacity:1}47%{opacity:1}48%{opacity:.35}49%{opacity:1}83%{opacity:.6}84%{opacity:1}}
 .test{display:flex;align-items:center;gap:1.6cqw;flex-wrap:wrap;justify-content:center;font-family:var(--f-pixel);font-size:3cqw;color:var(--muted)}
 .tbtn{font-family:var(--f-pixel);font-size:3.2cqw;color:var(--paper);background:rgba(255,255,255,.08);border:.3cqw dashed rgba(255,255,255,.35);border-radius:.8cqw;padding:1cqw 2.4cqw;cursor:pointer}
@@ -189,6 +201,7 @@ body{
 .big.red{text-shadow:.8cqw .8cqw 0 var(--hanko)}
 .clock{font-family:var(--f-pixel);font-size:8cqw;color:var(--memo);margin:0;font-variant-numeric:tabular-nums}
 .tcard{background:var(--paper);color:var(--ink);font-family:var(--f-pixel);padding:2cqw 4.5cqw 2.4cqw;border-radius:.8cqw;transform:rotate(-1.5deg);box-shadow:.8cqw .8cqw 0 rgba(0,0,0,.35);min-width:56cqw;font-variant-numeric:tabular-nums}
+.tcard .tc-easy{float:right;margin:-.6cqw 0 0 2cqw;font-size:2.8cqw;color:#2f8f57;border:.4cqw solid #2f8f57;border-radius:.8cqw;padding:.2cqw 1cqw;transform:rotate(-6deg)}
 .tcard .tc-h{font-size:3.2cqw;letter-spacing:.4em;color:var(--hanko-deep);border-bottom:.4cqw solid var(--hanko);padding-bottom:1cqw;margin-bottom:1.4cqw}
 .tcard dl{display:grid;grid-template-columns:auto auto;align-items:baseline;gap:.4cqw 5cqw;margin:0;font-size:3.4cqw}
 .tcard dt{text-align:left;color:#5d6660}.tcard dd{margin:0;text-align:right;font-size:5.6cqw}
@@ -276,13 +289,18 @@ body{
       <h1 class="logo"><span class="a">メタボリック</span><span class="b">バースト</span><span class="seal">クソゲー</span></h1>
       <p class="sub">～決死の退勤エスケープ～</p>
       <p id="heroLine" class="hero"></p>
-      <button id="startBtn" class="card" type="button"><span class="l">退勤を打刻</span><span class="r">定時<strong>18:00</strong></span></button>
+      <button id="startBtn" class="card" type="button" aria-expanded="false" aria-controls="diffMenu"><span class="l">退勤を打刻</span><span class="r">定時<strong>18:00</strong></span></button>
+      <!-- 打刻を押すと難易度を選ぶ -->
+      <div id="diffMenu" class="diffs" hidden>
+        <button id="easyBtn" class="easy" type="button"><span id="easyLabel"></span><small id="easyDesc"></small></button>
+        <button id="normalBtn" class="normal" type="button">通常モード<small>いつもの退勤・残機2</small></button>
+        <button id="uraBtn" class="ura" type="button">裏モード突入<small>敵1.7倍・<wbr>弾速UP・<wbr>ボス強化</small></button>
+      </div>
       <div id="contRow" class="modes" hidden>
         <button id="contBtn" class="cont" type="button">つづきから<small id="contSub"></small></button>
-        <button id="contAdBtn" class="adbtn small" type="button"><span class="adtag">広告</span>残機+1で始める<small>残機3でつづきから</small></button>
+        <button id="contAdBtn" class="adbtn small" type="button"><span class="adtag">広告</span>残機+1で始める<small id="contAdSub">残機3でつづきから</small></button>
       </div>
       <div class="modes">
-        <button id="uraBtn" class="ura" type="button">裏モード突入<small>敵1.7倍・<wbr>弾速UP・<wbr>ボス強化</small></button>
         <button id="endlessBtn" class="ura endless" type="button">エンドレス残業<small>全5面を周回・<wbr>周るほど高得点</small></button>
         <p id="modesLock" class="modelock" hidden>🔒 通常モードを突破すると解放</p>
       </div>
@@ -332,6 +350,9 @@ body{
       <div class="row">
         <button id="retryBtn" class="btn" type="button">このフロアから再挑戦</button>
         <button id="overTitleBtn" class="ghost" type="button">タイトルへ</button>
+      </div>
+      <div id="easyRetryRow" class="row" hidden>
+        <button id="easyRetryBtn" class="easy" type="button"><span id="easyRetryLabel"></span><small id="easyRetryDesc"></small></button>
       </div>
       <div class="row">
         <button id="retryDrinkBtn" class="adbtn small" type="button"><span class="adtag">広告</span>ドリンク付きで再挑戦<small>6秒無敵を1本</small></button>
@@ -479,10 +500,12 @@ const TH = () => THEMES[STAGES[G.stage].theme];
 // 難易度：裏モードは弾幕の密度・速さ・ボスの硬さを引き上げる
 const DIFFS = {
   normal: { density: 1, shot: 1, stampN: 0, fanN: 0, spread: 1.35, ringGap: 0.7, ringN: 0, rain: 1, bossHP: 1, open: 1, gap: 1, item: 1, drink: 1, dash: 1, buchoHP: 3, warn: 0.9, car: 560, gateGap: 150, gateSpd: 1.3 },
+  // やさしいモード：縦シューを遊ばない人が少し頑張ればクリアできる強さ（初心者Botの通しでゲームオーバー中央値2回）
+  easy: { density: 0.6, shot: 0.6, stampN: 0, fanN: 0, spread: 1.6, ringGap: 0.7, ringN: 0, rain: 1, bossHP: 0.6, open: 1.5, gap: 1.8, item: 0.7, drink: 0.6, dash: 1, buchoHP: 3, warn: 1.2, car: 480, gateGap: 150, gateSpd: 1.0 },
   ura: { density: 1.7, shot: 1.25, stampN: 1, fanN: 3, spread: 1.2, ringGap: 0.5, ringN: 5, rain: 1.5, bossHP: 1.15, open: 0.75, gap: 0.55, item: 1.3, drink: 1.4, dash: 1.1, buchoHP: 4, warn: 0.75, car: 650, gateGap: 140, gateSpd: 1.7 },
 };
 function D() {
-  const base = G.ura ? DIFFS.ura : DIFFS.normal;
+  const base = G.ura ? DIFFS.ura : G.easy ? DIFFS.easy : DIFFS.normal;
   if (G.endless && G.loop) { // エンドレス残業：周回ごとに少しずつ厳しく
     const L = G.loop;
     if (!G.loopDiff || G.loopDiff.L !== L) G.loopDiff = Object.assign({}, base, { L, density: base.density * (1 + 0.18 * L), shot: base.shot * (1 + 0.08 * L), bossHP: base.bossHP * (1 + 0.35 * L), item: base.item * (1 + 0.1 * L), gap: base.gap * Math.max(0.6, 1 - 0.12 * L), open: base.open * Math.max(0.7, 1 - 0.08 * L), buchoHP: base.buchoHP + Math.min(2, L) });
@@ -529,6 +552,9 @@ const ORDERS = {
 const ORDER_HITS = 3;
 // 残機（その場で立て直せる回数）。プレイ開始時の数。2面の中ボスが1回だけエクステンド（1UP）を落とす
 const LIVES = 2, LIVES_MAX = 4;
+// やさしいモードの名前（画面に出す所はここを使う）と、各フロアの最初に残機をここまで戻す数
+const EASY_SUGGEST = 3; // 同じフロアでこの回数ゲームオーバーになったら、かんたんモードを勧める
+const EASY = { name: 'かんたん', label: 'かんたんモード', desc: '敵と弾が少なめ・残機多め', lives: 3 };
 const ORDER_CUT = 1.9;  // 宣言の演出の長さ（この間は弾を撃たない）
 const ORDER_DUR = 22;   // 制限時間（決裁期限）
 const CAKE_MIN = 20 * 60; // 娘の誕生日ケーキの時刻（0時からの分）。エンディングの娘のセリフとタイムカードの境目
@@ -3918,7 +3944,7 @@ function smash(e, hb) {
 const BODY_MULT = [1, 2, 3, 5, 8, 12, 18];
 const modeMult = () => (G.ura ? 2 : 1) * (1 + 0.5 * (G.loop || 0)); // 裏は2倍、エンドレスは周回ごとに+50%
 const scoreRate = () => 15 * BODY_MULT[ammo()] * modeMult();
-const hiKey = () => G.endless ? 'endHi' : G.ura ? 'uraHi' : 'hi';
+const hiKey = () => G.endless ? 'endHi' : G.ura ? 'uraHi' : G.easy ? 'easyHi' : 'hi';
 function addScore(n) { G.score += Math.round(n * modeMult()); G.scorePop = 0.25; if (G.score >= 100000) unlock('score100k'); }
 const fmt = n => Math.floor(n).toLocaleString('en-US');
 function tutDone() { return Store.get('tut', 0) == 1; }
@@ -4166,6 +4192,10 @@ function showOver() {
   const remain = (G.endless ? `${G.loop + 1}周目 ` : G.rush ? `ボスラッシュ ${G.rush.i + 1}/${STAGES.length} ` : '') + (G.bossPhase ? 'ボス戦' : `出口まで残り ${Math.max(0, Math.ceil((st.len - G.dist) / 10))}m`);
   setAdButtons();
   ovStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>到達</dt><dd>${st.name}　${remain}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd>`;
+  // 同じフロアで3回続けてゲームオーバーになったら、かんたんモードでの再挑戦を勧める（通常モードだけ）
+  const f = G.fails && G.fails.stage === G.stage ? G.fails : (G.fails = { stage: G.stage, n: 0 });
+  f.n++;
+  $('easyRetryRow').hidden = !(f.n >= EASY_SUGGEST && !G.easy && !G.ura && !G.endless && !G.daily && !G.bossMode && !G.rush && !G.test);
   retryBtn.textContent = G.endless ? '1周目から再挑戦' : G.rush ? '1体目から再挑戦' : G.bossMode ? 'もう一度ボスに挑む' : 'このフロアから再挑戦';
   resetShare(); ovOver.hidden = false;
   d.stampTo = stampYFor(ovCause);
@@ -4189,8 +4219,8 @@ function stageClear() {
   if ((G.stage >= STAGES.length - 1 && !G.endless) || G.daily) {
     const locked = !modesUnlocked();
     if (G.daily) unlock('daily');
-    else if (!G.test) unlock(G.ura ? 'ura' : 'clear');
-    if (!G.test && !G.daily) { if (G.ura) b.uraClears = (b.uraClears || 0) + 1; else b.clears = (b.clears || 0) + 1; b.stage = STAGES.length - 1; b.pct = 100; G.best = b; }
+    else if (!G.test && !G.easy) unlock(G.ura ? 'ura' : 'clear');
+    if (!G.test && !G.daily) { const ck = G.ura ? 'uraClears' : G.easy ? 'easyClears' : 'clears'; b[ck] = (b[ck] || 0) + 1; b.stage = STAGES.length - 1; b.pct = 100; G.best = b; }
     saveScore();
     if (locked && modesUnlocked()) toast('裏モード・エンドレス残業 解放！（タイトルから）');
     const showEnd = () => {
@@ -4238,7 +4268,7 @@ function nextStageIdx() { return G.endless ? (G.stage + 1) % STAGES.length : G.s
 function timecardHTML() {
   const late = clockMin() - CAKE_MIN;
   const cake = !storyOn() ? '' : `<dt>ケーキ ${hhmmOf(CAKE_MIN)}</dt><dd class="${late < 0 ? 'ok' : 'late'}">${late < 0 ? '間に合った' : durStr(late) + '遅れ'}</dd>`;
-  return `<div class="tc-h">タイムカード</div><dl><dt>退勤打刻</dt><dd>18:00</dd><dt>帰宅</dt><dd>${clockStr()}</dd>${cake}</dl>`;
+  return `<div class="tc-h">タイムカード</div>${G.easy ? `<div class="tc-easy">${EASY.name}</div>` : ''}<dl><dt>退勤打刻</dt><dd>18:00</dd><dt>帰宅</dt><dd>${clockStr()}</dd>${cake}</dl>`;
 }
 // 面クリアの成績に足す行：いまの時刻（通常モードはケーキまでの残り）
 function clockStatsHTML() {
@@ -4260,29 +4290,30 @@ function startStage(i, freshAmmo) {
   G.tut = null; $('tutCard').hidden = true; G.stageScore = G.score || 0; G.combo = 0; G.comboT = 0; G.invSmash = 0; G.bossBumpT = 0; G.bossSlams = 0; G.midDone = false;
   resetPlayer(!!freshAmmo);
   // 残機は1回のプレイで持ち越す。同じフロアの再挑戦では、そのフロアに入ったときの数に戻す（満タンにはしないが、最低1は残す）
-  if (G.livesAt && G.livesAt.run === G.runId && G.livesAt.stage === i) G.lives = Math.max(1, G.livesAt.lives);
-  else G.livesAt = { run: G.runId, stage: i, lives: G.lives };
+  // やさしいモードは各フロアの最初に残機を EASY.lives まで戻す（再挑戦も同じ）
+  if (G.livesAt && G.livesAt.run === G.runId && G.livesAt.stage === i) G.lives = Math.max(G.easy ? EASY.lives : 1, G.livesAt.lives);
+  else { if (G.easy) G.lives = Math.max(G.lives, EASY.lives); G.livesAt = { run: G.runId, stage: i, lives: G.lives }; }
   P.noShirt = false;
   G.mode = 'play';
   const st = STAGES[i];
   if (G.rush) banner(`ボスラッシュ ${G.rush.i + 1}/${STAGES.length}`, BOSSES[st.boss].name + '　' + BOSSES[st.boss].who, '#fff', true);
-  else banner((G.ura ? '裏 ' : G.endless ? `残業${G.loop + 1}周目 ` : '') + st.name, st.place + '　出口まで ' + Math.round(st.len / 10) + 'm', G.ura ? COL.hanko : '#fff', true);
+  else banner((G.ura ? '裏 ' : G.easy ? EASY.name + ' ' : G.endless ? `残業${G.loop + 1}周目 ` : '') + st.name, st.place + '　出口まで ' + Math.round(st.len / 10) + 'm', G.ura ? COL.hanko : '#fff', true);
   for (const o of [ovTitle, ovOver, ovClear, ovEnd, ovPause]) o.hidden = true;
   pauseBtn.hidden = false;
   musicStart(); sfx('gogo');
   if (G.bossMode) { G.bossStart = G.play; startBoss(); setBossModeButtons(); return; } // ボスモードは道中なしでいきなりボス戦
   if (i === 0 && !G.ura && !G.daily && !G.endless && !tutDone()) startTut(); // 通常モードの1面で、まだ見ていない人だけ
 }
-function newRun() { G.cont = false; G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
+function newRun() { G.cont = false; G.easy = false; G.fails = null; G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
 // つづきから：今までに到達した一番先のフロアから。残機は最初と同じ（広告で+1）、脂肪満タン。スコアは記録しない
 function contStage() { return Math.min(STAGES.length - 1, (G.best && G.best.stage) || 0); }
 function startContinue(extraLife) {
-  newRun(); G.cont = true; G.ura = false; G.endless = false; G.test = false; G.score = 0; G.play = 0;
+  newRun(); G.cont = true; G.ura = false; G.easy = META.mode === 'easy'; G.endless = false; G.test = false; G.score = 0; G.play = 0;
   G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 };
-  if (extraLife) G.lives = Math.min(LIVES_MAX, LIVES + 1);
+  if (extraLife) G.lives = Math.min(LIVES_MAX, (G.easy ? EASY.lives : LIVES) + 1);
   startStage(contStage(), true);
 }
-function newGame(ura, endless) { newRun(); G.ura = !!ura; G.endless = !!endless; G.test = false; G.score = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 }; G.play = 0; startStage(0, true); }
+function newGame(ura, endless, easy) { newRun(); G.ura = !!ura; G.endless = !!endless; G.easy = !!easy && !ura && !endless; setLastMode(); G.test = false; G.score = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 }; G.play = 0; startStage(0, true); }
 function toTitle() {
   endDaily(); G.bossMode = null; G.rush = null; setBossModeButtons(); closePanel(); if (G.tut) endTut(false);
   G.mode = 'title'; G.stage = 0; G.decor = []; G.ents = []; G.bullets = []; G.parts = []; G.texts = []; G.boss = null; G.death = null; G.banner = null; G.queue = []; G.cutin = null; G.kyakka = null;
@@ -4342,13 +4373,15 @@ function togglePause() {
 }
 function updateBestLine() {
   const b = G.best;
-  bestLine.textContent = !b ? 'まだ誰も無事に帰れていません' : `ハイスコア ${fmt(b.hi || 0)}` + (b.uraHi ? `／裏 ${fmt(b.uraHi)}` : '') + (b.endHi ? `／残業 ${fmt(b.endHi)}` : '') + (b.clears ? `／帰宅 ${b.clears}回` : '');
+  bestLine.textContent = !b ? 'まだ誰も無事に帰れていません' : `ハイスコア ${fmt(b.hi || 0)}` + (b.easyHi ? `／${EASY.name} ${fmt(b.easyHi)}` : '') + (b.uraHi ? `／裏 ${fmt(b.uraHi)}` : '') + (b.endHi ? `／残業 ${fmt(b.endHi)}` : '') + (b.clears ? `／帰宅 ${b.clears}回` : '');
   // 1面までしか行っていなければ「つづきから」は出さない
   const cs = contStage();
   $('contRow').hidden = cs < 1;
-  $('contSub').textContent = `${STAGES[cs].name}から・記録なし`;
+  const ce = META.mode === 'easy';
+  $('contSub').textContent = `${ce ? EASY.name + '・' : ''}${STAGES[cs].name}から・記録なし`;
+  $('contAdSub').textContent = `残機${(ce ? EASY.lives : LIVES) + 1}でつづきから`;
   updateModeLocks();
-  setMoreMenu(false); // タイトルに戻るたびに「その他」は閉じる
+  setMoreMenu(false); setDiffMenu(false); // タイトルに戻るたびに「その他」と難易度の選択は閉じる
 }
 
 function step(dt, rdt) {
@@ -4823,15 +4856,16 @@ function loop(now) {
 // メタボリック・バースト：実績・ランキング・今日のお題・着せ替え・設定の画面
 'use strict';
 // 保存データの版。項目を増やしたら上げて migrateMeta に移し方を書く
-const SAVE_VER = 4;
+const SAVE_VER = 5;
 function migrateMeta(m) {
-  const def = { ach: {}, tot: { face: 0, mid: 0 }, cos: { suit: 'navy', tie: 'red', head: 'none' }, unlocked: {}, ranks: { normal: [], ura: [], endless: [] }, daily: {}, bosses: {}, bossBest: {} };
+  const def = { ach: {}, tot: { face: 0, mid: 0 }, cos: { suit: 'navy', tie: 'red', head: 'none' }, unlocked: {}, ranks: { normal: [], ura: [], endless: [], easy: [] }, daily: {}, bosses: {}, bossBest: {}, mode: 'normal' };
   const old = m && typeof m === 'object' ? (m.v || 1) : SAVE_VER;
   if (!m || typeof m !== 'object') m = {};
   for (const k in def) if (typeof m[k] !== 'object' || m[k] === null) m[k] = def[k]; else if (!Array.isArray(def[k])) for (const j in def[k]) if (m[k][j] === undefined) m[k][j] = def[k][j];
   // v1 → v2：エンドレス残業のランキングを追加（上の既定値で作られる）
   // v2 → v3：実績「命令却下」の id を spell から order に変更（取った日時はそのまま引き継ぐ）
   // v3 → v4：着せ替えに「頭」を追加（上の既定値で「なし」になる）
+  // v4 → v5：やさしいモードのランキング ranks.easy と、最後に遊んだモード mode（上の既定値で空・通常になる）
   if (m.ach.spell && !m.ach.order) m.ach.order = m.ach.spell;
   delete m.ach.spell;
   // v3 → v4：ボスモード。今までに先のステージへ進めていたら、そこまでのボスは倒したことにする
@@ -4874,8 +4908,10 @@ const ACHS = [
   { id: 'ura2', name: '裏の常連', desc: '裏モードでSTAGE 2を突破' },
   { id: 'rush', name: '一二三四五'[STAGES.length - 1] + '連勤', desc: 'ボスラッシュを突破' },
 ];
+// やさしいモードでは取れない腕前の実績（全面突破・ノーミス・全件却下など）
+const EASY_NO_ACH = /^(clear|heavy|allorder|score100k|nomiss_)/;
 function unlock(id) {
-  if (G.test || META.ach[id]) return;
+  if (G.test || META.ach[id] || (G.easy && EASY_NO_ACH.test(id))) return;
   META.ach[id] = Date.now(); saveMeta();
   const a = ACHS.find(x => x.id === id);
   toast('実績解除：' + a.name);
@@ -4942,6 +4978,12 @@ function dailyInfo() {
 function normalCleared() { const b = G.best || {}; return !!(b.clears || META.ach.clear); }
 // 裏モード・エンドレス残業は通常モードを1回クリアすると解放（前の版で裏や2周目まで遊んだ人もそのまま解放）
 function modesUnlocked() { const b = G.best || {}; return normalCleared() || !!(b.uraClears || META.ach.ura || META.ach.loop2); }
+// つづきからで使う「最後に遊んだモード」（通常かやさしいか。裏・エンドレスは数えない）
+function setLastMode() {
+  if (G.ura || G.endless) return;
+  const m = G.easy ? 'easy' : 'normal';
+  if (META.mode !== m) { META.mode = m; saveMeta(); }
+}
 const MODE_LOCK_MSG = '通常モードを突破すると解放';
 function updateModeLocks() {
   const open = modesUnlocked();
@@ -4953,7 +4995,7 @@ function seeded(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) 
 function startDaily() {
   const info = dailyInfo();
   auInit(); closePanel();
-  G.daily = info; G.dailyDiff = null; G.bossMode = null; G.rush = null; G.endless = false; G.loop = 0; G.ura = info.ura; G.test = false; G.revived = false; G.graze = 0; G.runId = Date.now();
+  G.daily = info; G.dailyDiff = null; G.easy = false; G.bossMode = null; G.rush = null; G.endless = false; G.loop = 0; G.ura = info.ura; G.test = false; G.revived = false; G.graze = 0; G.runId = Date.now();
   G.score = 0; G.play = 0; G.stats = { shots: 0, crushed: 0, items: 0, catches: 0 };
   Math.random = seeded(info.key); // 同じ日は同じ並びで敵が出る
   startStage(info.stage, true);
@@ -5015,7 +5057,7 @@ function showBossMode() {
 /* ================= ランキング（端末内の上位10件） ================= */
 function recordRank() {
   if (G.test || G.daily || G.bossMode || G.cont) return;
-  const board = G.endless ? 'endless' : G.ura ? 'ura' : 'normal', list = META.ranks[board];
+  const board = G.endless ? 'endless' : G.ura ? 'ura' : G.easy ? 'easy' : 'normal', list = META.ranks[board];
   const reach = G.endless ? `${G.loop + 1}周目 ${STAGES[G.stage].name}` : !ovEnd.hidden || G.mode === 'clear' ? '帰宅' : STAGES[G.stage].name;
   const d = new Date(), date = `${d.getMonth() + 1}/${d.getDate()}`;
   const i = list.findIndex(r => r.run === G.runId);
@@ -5023,7 +5065,7 @@ function recordRank() {
   if (i >= 0) { if (row.s >= list[i].s) list[i] = row; } else list.push(row); // 再挑戦で同じ runId になっても、低い点で上書きしない
   list.sort((a, b) => b.s - a.s); list.length = Math.min(list.length, 10);
   saveMeta();
-  GameServices.submit(board, G.score);
+  if (board !== 'easy') GameServices.submit(board, G.score); // やさしいモードは Play のランキングに送らない
 }
 
 /* ================= パネル画面 ================= */
@@ -5051,7 +5093,7 @@ function showDaily() {
 function showRanking() {
   const row = (r, i) => `<li><span class="rk">${i + 1}</span><span class="rs">${fmt(r.s)}</span><span class="ra">${esc(r.at)}　${esc(r.date)}</span></li>`;
   const list = k => META.ranks[k].length ? `<ol class="rank">${META.ranks[k].map(row).join('')}</ol>` : '<p class="pnote">まだ記録がありません</p>';
-  openPanel('ランキング', `<h3>通常</h3>${list('normal')}<h3>裏モード</h3>${list('ura')}<h3>エンドレス残業</h3>${list('endless')}
+  openPanel('ランキング', `<h3>通常</h3>${list('normal')}<h3>${EASY.name}</h3>${list('easy')}<h3>裏モード</h3>${list('ura')}<h3>エンドレス残業</h3>${list('endless')}
     <p class="pnote">この端末での上位10件です。</p>${playButton('storeBoard', 'Play ゲームのランキングを見る')}`);
   bindPlayButton('storeBoard', showRanking, () => GameServices.showBoards());
 }
@@ -5650,10 +5692,10 @@ function storyNext(skip) {
   clearInterval(R.timer); storyRun = null; $('ovStory').hidden = true; R.done();
 }
 // タイトルの「退勤を打刻」：通常モードで初めて遊ぶときだけプロローグを挟む
-function startWithStory() {
-  if (STORY_SEEN.prologue) { newGame(false); return; }
+function startWithStory(easy) {
+  if (STORY_SEEN.prologue) { newGame(false, false, easy); return; }
   storySeen('prologue');
-  showStory(PROLOGUE, () => newGame(false));
+  showStory(PROLOGUE, () => newGame(false, false, easy));
 }
 // ボスのひとことを紙芝居のページにする（あらすじから通して見るとき用）
 function storyAfterPages() {
@@ -5694,7 +5736,14 @@ const ovTitle = $('ovTitle'), ovPause = $('ovPause'), ovOver = $('ovOver'), ovCl
 const ovCause = $('overCause'), ovStats = $('overStats'), clearKicker = $('clearKicker'), clearMsg = $('clearMsg'), clearStats = $('clearStats');
 const endClock = $('endClock'), endMsg = $('endMsg'), endStats = $('endStats'), bestLine = $('bestLine');
 const pauseBtn = $('pauseBtn'), retryBtn = $('retryBtn'), nextBtn = $('nextBtn'), againBtn = $('againBtn'), resumeBtn = $('resumeBtn');
-$('startBtn').addEventListener('click', () => { auInit(); startWithStory(); });
+// 打刻ボタンは難易度の選択を開く。前回遊んだ方（かんたん／通常）に印を付ける
+function setDiffMenu(open) {
+  $('diffMenu').hidden = !open; $('startBtn').setAttribute('aria-expanded', open);
+  $('easyBtn').classList.toggle('last', META.mode === 'easy'); $('normalBtn').classList.toggle('last', META.mode !== 'easy');
+  if (open) (META.mode === 'easy' ? $('easyBtn') : $('normalBtn')).focus({ preventScroll: true });
+}
+$('startBtn').addEventListener('click', () => { auInit(); setDiffMenu($('diffMenu').hidden); });
+$('normalBtn').addEventListener('click', () => { auInit(); startWithStory(false); });
 $('mHow').addEventListener('click', showHow);
 function setMoreMenu(open) { $('moreMenu').hidden = !open; $('mMore').setAttribute('aria-expanded', open); $('mMore').textContent = open ? 'その他 ▴' : 'その他 ▾'; }
 $('mMore').addEventListener('click', () => setMoreMenu($('moreMenu').hidden));
@@ -5707,6 +5756,11 @@ $('mRank').addEventListener('click', showRanking);
 $('mAch').addEventListener('click', showAchievements);
 $('mCos').addEventListener('click', showCostume);
 $('mSet').addEventListener('click', showSettings);
+$('easyLabel').textContent = EASY.label; $('easyDesc').textContent = EASY.desc;
+$('easyRetryLabel').textContent = `${EASY.label}でこのフロアから`; $('easyRetryDesc').textContent = `${EASY.desc}（残機${EASY.lives}）`;
+$('easyBtn').addEventListener('click', () => { auInit(); startWithStory(true); });
+// 途中からかんたんモードに切り替えたプレイは、最後までかんたんモードとして記録する
+$('easyRetryBtn').addEventListener('click', () => { auInit(); G.easy = true; setLastMode(); G.fails = null; G.score = G.stageScore || 0; startStage(G.stage, true); });
 $('uraBtn').addEventListener('click', () => { auInit(); if (!modesUnlocked()) return toast(MODE_LOCK_MSG); newGame(true); });
 $('endlessBtn').addEventListener('click', () => { auInit(); if (!modesUnlocked()) return toast(MODE_LOCK_MSG); newGame(false, true); });
 $('contBtn').addEventListener('click', () => { auInit(); startContinue(false); });
@@ -5728,7 +5782,7 @@ $('overTitleBtn').addEventListener('click', toTitle);
 nextBtn.addEventListener('click', () => { auInit(); if (G.rush) startBossRush(); else if (G.bossMode) startBossMode(G.bossMode); else startStage(nextStageIdx(), false); });
 $('clearBossBtn').addEventListener('click', () => { toTitle(); showBossMode(); });
 $('clearTitleBtn').addEventListener('click', toTitle);
-againBtn.addEventListener('click', () => { auInit(); if (G.daily) startDaily(); else newGame(G.ura, G.endless); });
+againBtn.addEventListener('click', () => { auInit(); if (G.daily) startDaily(); else newGame(G.ura, G.endless, G.easy); });
 // 広告ボタン（報酬の中身はボタンに明記）
 $('reviveBtn').addEventListener('click', async () => { if (await Ads.reward('その場で復活')) revive(); else musicResume(); });
 $('retryDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンク付きで再挑戦')) { if (G.rush) startBossRush(); else { G.score = G.stageScore || 0; startStage(G.stage, true); } giveStartDrink(); } });
@@ -5747,7 +5801,7 @@ $('heroLine').innerHTML = heroHTML();
 function shareText() {
   const st = STAGES[G.stage], cleared = !ovEnd.hidden;
   const where = cleared ? '全ステージ突破' : (G.death && G.death.type === 'starve' ? st.name + 'で燃え尽き' : st.name + 'で残業確定');
-  return `メタボリック・バースト${G.rush ? '［ボスラッシュ］' : G.bossMode ? '［ボスモード］' : G.ura ? '［裏］' : G.endless ? `［エンドレス${G.loop + 1}周目］` : ''} ${HERO.family}係長、${where} SCORE ${fmt(G.score)} #メタボリックバースト`;
+  return `メタボリック・バースト${G.rush ? '［ボスラッシュ］' : G.bossMode ? '［ボスモード］' : G.ura ? '［裏］' : G.easy ? `［${EASY.name}］` : G.endless ? `［エンドレス${G.loop + 1}周目］` : ''} ${HERO.family}係長、${where} SCORE ${fmt(G.score)} #メタボリックバースト`;
 }
 for (const [btnId, outId] of [['shareOver', 'shareOverText'], ['shareEnd', 'shareEndText']]) {
   const btn = $(btnId), out = $(outId);
