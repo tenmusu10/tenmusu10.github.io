@@ -1180,6 +1180,29 @@ const GameServices = {
   showAchievements() { if (this.signedIn) this.call('showAchievements'); },
 };
 
+/* ================= アプリ内レビュー（Google Play） ================= */
+// 気持ちよく勝った直後（2人目以降のボスを倒した・全面突破・ボスラッシュ突破）にだけ、Play の評価の小窓を頼む。
+// 負けた直後・プレイ中・広告中は頼まない。前置きの「評価してください」や、星の数で振り分ける画面は出さない（Play のポリシー）。
+// 頼むのは REVIEW.max 回まで・前回から REVIEW.gapDays 日あける。Play 側にも上限があり、頼んでも出ないことが多い
+// プラグインはアプリ内の android/.../InAppReviewPlugin.java。Web版にはないので何もしない
+const REVIEW = { max: 3, gapDays: 30, waitMs: 1500 };
+const Review = {
+  state: Object.assign({ n: 0, at: 0 }, Store.get('review', {})),
+  plugin: () => CAP().InAppReview,
+  due(now) { return this.state.n < REVIEW.max && now - this.state.at >= REVIEW.gapDays * 864e5; },
+  // 結果の画面が出てから少し待って頼む。そのあいだに次へ進んだ・広告を開いたなら今回は見送る（回数も数えない）
+  maybeAsk(why) {
+    const pl = this.plugin();
+    if (!pl || G.test || !this.due(Date.now())) return false;
+    setTimeout(() => {
+      if (G.mode === 'play' || G.mode === 'paused' || !$('ovAd').hidden || Ads.busy || !this.due(Date.now())) return;
+      this.state = { n: this.state.n + 1, at: Date.now(), why }; Store.set('review', this.state);
+      pl.requestReview().catch(() => {});
+    }, REVIEW.waitMs);
+    return true;
+  },
+};
+
 /* ================= Androidの戻るボタン・アプリの切り替え ================= */
 function initAppEvents() {
   const app = CAP().App; if (!app) return;
@@ -4301,6 +4324,7 @@ function stageClear() {
       endMsg.innerHTML = (story ? '<span class="say"><b>娘</b>「パパおかえり！」</span>' : '') + HERO.family + '係長、' + (ammo() === 6 ? '体脂肪は<em>満タン</em>のまま帰宅。<br>今夜もビールがうまい。' : `体脂肪は残り<em>${ammo()}/6</em>。<br>ちょっと痩せた気がします。`);
       endStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd><dt>粉砕した障害</dt><dd>${G.stats.crushed}件</dd><dt>食べた物</dt><dd>${G.stats.items}個</dd>`;
       resetShare(); setAdButtons(); ovEnd.hidden = false; againBtn.focus({ preventScroll: true });
+      if (!G.daily) Review.maybeAsk('allclear');
     };
     setTimeout(() => { if (!G.daily && storyOn()) showEnding(showEnd); else showEnd(); }, 700);
   } else {
@@ -4309,6 +4333,7 @@ function stageClear() {
       clearMsg.innerHTML = looped ? `帰ろうとしたら<em>また1面から</em>。<br>${G.loop + 1}周目は敵が増えて、点も伸びます。` : `${BOSSES[st.boss].name}を<em>物理的に黙らせました</em>。<br>次は${STAGES[nextStageIdx()].place}。` + storyAfterHTML(st.boss);
       clearStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd>` + clockStatsHTML();
       setAdButtons(); ovClear.hidden = false; nextBtn.focus({ preventScroll: true });
+      if (G.stage >= 1) Review.maybeAsk('stage' + (G.stage + 1)); // 1人目のボスはまだ早い
     }, 700);
   }
 }
@@ -4331,6 +4356,7 @@ function rushClear(shown) {
     clearMsg.innerHTML = `${STAGES.length}人を合計<em>${fmtSec(sec)}</em>で黙らせました。` + (best ? (prev ? '<br>自己ベスト更新！' : '') : `<br>最速は${fmtSec(prev)}。`);
     clearStats.innerHTML = STAGES.map((st, i) => `<dt>${esc(BOSSES[st.boss].name)}</dt><dd>${fmtSec(R.splits[i])}</dd>`).join('') + `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd>`;
     setAdButtons(); ovClear.hidden = false; nextBtn.focus({ preventScroll: true });
+    Review.maybeAsk('rush');
   }, 700);
 }
 function nextStageIdx() { return G.endless ? (G.stage + 1) % STAGES.length : G.stage + 1; }
@@ -6098,7 +6124,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && G.m
 function boot() {
   resize(); toTitle();
   // アプリ版：保存データの復元・広告・戻るボタン・ストアのサインイン
-  Store.restore(['best', 'meta', 'settings', 'tut']).then(ch => { if (ch) location.reload(); });
+  Store.restore(['best', 'meta', 'settings', 'tut', 'review']).then(ch => { if (ch) location.reload(); });
   Ads.init(); initAppEvents(); GameServices.init(); Notify.init();
   try { for (const f of [F.mc(54), F.dg(20), F.px(12), F.zk(12), F.zk(12, 700)]) document.fonts.load(f, 'あア亜A'); } catch (e) {} // canvasは使うまでフォントを読まないので先に読む
   try { window.claude?.hot?.snapshot?.(() => ({ best: G.best })); } catch (e) {}
