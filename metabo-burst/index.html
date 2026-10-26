@@ -1032,8 +1032,16 @@ const Haptic = {
 // AdMob のリワード広告ユニットID（metabo_reward_android／metabo_reward_ios）。
 // 動作確認でテスト広告に戻すときは Google のテスト用ID（ca-app-pub-3940256099942544/5224354917・/1712485313）に置き換える。
 const AD_IDS = { android: 'ca-app-pub-5435962166146660/1253213709', ios: 'ca-app-pub-5435962166146660/6048788543' };
+// 置き場所ごとの広告ユニットID。AdMob の収益レポートを場所別に見るために分ける。
+// null の場所と iOS は AD_IDS を使う（AdMob のユニット名 metabo_reward_cont／revive／retry／next、2026年10月26日作成）
+const AD_PLACES = {
+  cont: { android: 'ca-app-pub-5435962166146660/4800650434' },   // タイトル「残機+1で始める」
+  revive: { android: 'ca-app-pub-5435962166146660/8663165986' }, // ゲームオーバー「その場で復活」
+  retry: { android: 'ca-app-pub-5435962166146660/2485690316' },  // ゲームオーバー「ドリンク付きで再挑戦」
+  next: { android: 'ca-app-pub-5435962166146660/5107772192' },   // クリア「ドリンクを持って次へ」
+};
 // テスト用IDのあいだだけテストモード。本番IDに差し替えると自動で切れるので、消し忘れが起きない
-const AD_TESTING = Object.values(AD_IDS).some(id => id.startsWith('ca-app-pub-3940256099942544/'));
+const AD_TESTING = [AD_IDS, ...Object.values(AD_PLACES)].some(u => u && Object.values(u).some(id => id.startsWith('ca-app-pub-3940256099942544/')));
 // 広告の読み込み・表示を待つ上限（電波が弱くても画面が固まらないように）
 const AD_LOAD_MS = 10000, AD_SHOW_MS = 120000, AD_STALE_MS = 50 * 60 * 1000; // 読み込んだ広告は約1時間で期限切れ
 const withTimeout = (pr, ms) => new Promise((res, rej) => {
@@ -1042,7 +1050,7 @@ const withTimeout = (pr, ms) => new Promise((res, rej) => {
 });
 const Ads = {
   ready: false, busy: false, privacy: false, // privacy：EU などで「広告のプライバシー設定」を出す必要がある
-  pre: null, preAt: 0, // 先読み中・先読み済みの広告（Promise<boolean>）と読み込んだ時刻
+  pre: {}, // 広告ユニットIDごとの先読み { p: Promise<boolean>, at: 読み込んだ時刻 }
   async init() {
     const ad = CAP().AdMob; if (!ad) return;
     try {
@@ -1056,25 +1064,31 @@ const Ads = {
       // iOSのトラッキング許可
       if (ad.trackingAuthorizationStatus) { const s = await ad.trackingAuthorizationStatus(); if (s && s.status === 'notDetermined') await ad.requestTrackingAuthorization(); }
       this.ready = true;
-      this.preload();
+      this.preload('revive'); // いちばん使われるのはゲームオーバーの復活
+      const cr = document.getElementById('contRow'); if (cr && !cr.hidden) this.preload('cont'); // タイトルに「残機+1で始める」が出ているとき
     } catch (e) {}
   },
-  adId() {
+  adId(place) {
     const plat = window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : 'android';
-    return AD_IDS[plat] || AD_IDS.android;
+    const u = AD_PLACES[place]; // その場所・その OS のユニットが無ければ共通ユニット
+    return (u && u[plat]) || AD_IDS[plat] || AD_IDS.android;
   },
-  // 押してから読み込むと数秒待たされるので、前もって1本読み込んでおく。失敗しても false になるだけ
-  preload() {
+  // 押してから読み込むと数秒待たされるので、ボタンが出たときに前もって読み込んでおく。
+  // 同じユニットの読み込み済み・読み込み中があれば何もしない。失敗しても false になるだけ
+  preload(place) {
     const ad = CAP().AdMob; if (!ad || !this.ready) return null;
-    const at = Date.now();
-    this.pre = withTimeout(ad.prepareRewardVideoAd({ adId: this.adId() }), AD_LOAD_MS)
-      .then(() => { this.preAt = at; return true; }, () => { this.pre = null; return false; });
-    return this.pre;
+    const id = this.adId(place), cur = this.pre[id];
+    if (cur && (!cur.at || Date.now() - cur.at < AD_STALE_MS)) return cur.p;
+    const e = { p: null, at: 0 };
+    e.p = withTimeout(ad.prepareRewardVideoAd({ adId: id }), AD_LOAD_MS)
+      .then(() => { e.at = Date.now(); return true; }, () => { if (this.pre[id] === e) delete this.pre[id]; return false; });
+    this.pre[id] = e;
+    return e.p;
   },
   // 表示して、閉じられるまで待つ。報酬を受け取ったかを返す。
   // プラグインの showRewardVideoAd() は報酬が出たときしか終わらない（途中で閉じる・表示に失敗すると返ってこない）ので、
   // イベントで「閉じた」「表示できなかった」を拾って終わらせる
-  async show(ad) {
+  async show(ad, adId) {
     let earned = false, finish;
     const ended = new Promise(res => { finish = res; });
     const hs = await Promise.all([
@@ -1083,7 +1097,7 @@ const Ads = {
       ad.addListener('onRewardedVideoAdFailedToShow', () => finish()),
     ]);
     try {
-      ad.showRewardVideoAd().then(() => { earned = true; }, () => finish());
+      ad.showRewardVideoAd({ adId }).then(() => { earned = true; }, () => finish());
       await withTimeout(ended, AD_SHOW_MS).catch(() => {});
       return earned;
     } finally { for (const h of hs) h && h.remove && h.remove(); }
@@ -1093,8 +1107,8 @@ const Ads = {
     const ad = CAP().AdMob; if (!ad || !this.privacy) return;
     try { await ad.showPrivacyOptionsForm(); } catch (e) { toast('プライバシー設定を開けませんでした。通信できる場所でもう一度お試しください'); }
   },
-  // 報酬付き広告を最後まで見たら true
-  async reward(label) {
+  // 報酬付き広告を最後まで見たら true。place は AD_PLACES のキー
+  async reward(label, place) {
     if (this.busy) return false;
     this.busy = true; musicStop();
     try {
@@ -1102,12 +1116,12 @@ const Ads = {
       if (!ad) return await mockAd(label);
       const offline = () => navigator.onLine === false;
       if (!this.ready) { toast(offline() ? '通信できません。つながる場所でもう一度お試しください' : '広告を準備できませんでした。少し時間をおいてお試しください'); return false; }
-      if (!this.pre || Date.now() - this.preAt > AD_STALE_MS) this.preload();
+      const id = this.adId(place);
       // 読み込めないのは、通信エラーより「いま流せる広告がない」（在庫切れ）のほうが多い
-      if (!(await this.pre)) { toast(offline() ? '通信できません。つながる場所でもう一度お試しください' : 'いま流せる広告がありません。少し時間をおいてお試しください'); return false; }
-      this.pre = null; // 1本を使い切る
-      return await this.show(ad);
-    } catch (e) { return false; } finally { this.busy = false; this.preload(); }
+      if (!(await this.preload(place))) { toast(offline() ? '通信できません。つながる場所でもう一度お試しください' : 'いま流せる広告がありません。少し時間をおいてお試しください'); return false; }
+      delete this.pre[id]; // 1本を使い切る
+      return await this.show(ad, id);
+    } catch (e) { return false; } finally { this.busy = false; this.preload(place); }
   },
 };
 // Web版：本物の広告の代わりに3秒の画面を出す
@@ -4424,6 +4438,7 @@ function setAdButtons() {
   $('reviveBtn').hidden = !!G.revived;
   $('retryDrinkBtn').hidden = !G.revived || noDrink; // 復活が残っている間は復活だけ（広告ボタンは1つずつ）
   $('nextDrinkBtn').hidden = !!G.bossMode || !!G.drinkStock || noDrink; // ドリンクは1本までで持ち越すので、持っていたら増えない
+  for (const [b, place] of [['reviveBtn', 'revive'], ['retryDrinkBtn', 'retry'], ['nextDrinkBtn', 'next']]) if (!$(b).hidden) Ads.preload(place); // 出したボタンの広告を先に読み込む
 }
 function togglePause() {
   if (G.mode === 'play') { G.prevMode = 'play'; G.mode = 'paused'; ovPause.hidden = false; musicStop(); P.charging = false; chargeSound(false); ptr = mptr = fptr = null; resumeBtn.focus({ preventScroll: true }); }
@@ -4435,6 +4450,7 @@ function updateBestLine() {
   // 1面までしか行っていなければ「つづきから」は出さない
   const cs = contStage();
   $('contRow').hidden = cs < 1;
+  if (cs >= 1) Ads.preload('cont');
   const ce = META.mode === 'easy';
   $('contSub').textContent = `${ce ? EASY.name + '・' : ''}${STAGES[cs].name}から・記録なし`;
   $('contAdSub').textContent = `残機${(ce ? EASY.lives : LIVES) + 1}でつづきから`;
@@ -6025,7 +6041,7 @@ $('easyRetryBtn').addEventListener('click', () => { auInit(); G.easy = true; set
 $('uraBtn').addEventListener('click', () => { auInit(); if (!modesUnlocked()) return toast(MODE_LOCK_MSG); newGame(true); });
 $('endlessBtn').addEventListener('click', () => { auInit(); if (!modesUnlocked()) return toast(MODE_LOCK_MSG); newGame(false, true); });
 $('contBtn').addEventListener('click', () => { auInit(); startContinue(false); });
-$('contAdBtn').addEventListener('click', async () => { auInit(); if (await Ads.reward('残機+1で始める')) startContinue(true); else musicResume(); });
+$('contAdBtn').addEventListener('click', async () => { auInit(); if (await Ads.reward('残機+1で始める', 'cont')) startContinue(true); else musicResume(); });
 // テスト用：好きなステージから開始（脂肪は満タン、スコアは0から）
 // ブラウザ版だけ Google Play への導線を出す（config.js の PLAY_PUBLIC）
 if (PLAY_PUBLIC && !isNative()) { $('appLink').href = PLAY_URL; $('appLink').hidden = false; }
@@ -6045,9 +6061,9 @@ $('clearBossBtn').addEventListener('click', () => { toTitle(); showBossMode(); }
 $('clearTitleBtn').addEventListener('click', toTitle);
 againBtn.addEventListener('click', () => { auInit(); if (G.daily) startDaily(); else newGame(G.ura, G.endless, G.easy); });
 // 広告ボタン（報酬の中身はボタンに明記）
-$('reviveBtn').addEventListener('click', async () => { if (await Ads.reward('その場で復活')) revive(); else musicResume(); });
-$('retryDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンク付きで再挑戦')) { if (G.rush) startBossRush(); else { G.score = G.stageScore || 0; startStage(G.stage, true); } giveStartDrink(); } });
-$('nextDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンクを持って次へ')) { startStage(nextStageIdx(), false); giveStartDrink(); } });
+$('reviveBtn').addEventListener('click', async () => { if (await Ads.reward('その場で復活', 'revive')) revive(); else musicResume(); });
+$('retryDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンク付きで再挑戦', 'retry')) { if (G.rush) startBossRush(); else { G.score = G.stageScore || 0; startStage(G.stage, true); } giveStartDrink(); } });
+$('nextDrinkBtn').addEventListener('click', async () => { if (await Ads.reward('ドリンクを持って次へ', 'next')) { startStage(nextStageIdx(), false); giveStartDrink(); } });
 $('endTitleBtn').addEventListener('click', toTitle);
 pauseBtn.addEventListener('click', togglePause);
 resumeBtn.addEventListener('click', togglePause);
