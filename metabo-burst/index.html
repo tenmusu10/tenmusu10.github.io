@@ -1225,8 +1225,8 @@ function initAppEvents() {
 // 日本語のときは何もしない（今までと同じ表示・同じ速さ）。訳が無い文は日本語のまま出る
 'use strict';
 const LANGS = ['ja', 'en'];
-// 英語の訳がそろうまでは、端末の言語で自動では切り替えない（設定の「言語」と ?lang=en だけ）
-const LANG_AUTO = false;
+// 端末の言語が日本語なら日本語、それ以外は英語（設定の「言語」と ?lang= が先）
+const LANG_AUTO = true;
 const LANG = (() => {
   try { const q = new URLSearchParams(location.search).get('lang'); if (LANGS.includes(q)) return q; } catch (e) {}
   if (LANGS.includes(SETTINGS.lang)) return SETTINGS.lang;
@@ -1834,6 +1834,119 @@ Object.assign(EN, {
   'キャリーケースの山に埋もれました。<br>終電が<em>目の前で</em>出ました。': 'Buried under suitcases.<br>The last train left <em>right in front of you</em>.',
   'チラシを受け取ってしまいました。<br>お通し代<em>500円</em>です。': 'You took a flyer.<br>That\'s a <em>¥500</em> table charge.',
   '体脂肪が尽きてガリガリに。<br>ラーメンを食べに行く<em>体力</em>もありません。': 'Out of body fat, skin and bones.<br>No <em>energy</em> left even for ramen.',
+});
+
+// 実績・着せ替え・今日のお題・tips・忘年会シーズン・毎日のお知らせ
+Object.assign(EN, {
+  /* ---------- 実績（名前・条件） ---------- */
+  '無事帰宅': 'Home Safe', '通常モードを全ステージ突破': 'Clear every stage in Normal Mode',
+  '裏の帰宅者': 'Ura Commuter', '裏モードを全ステージ突破': 'Clear every stage in Ura Mode',
+  'かんたん帰宅': 'Easy Commute', 'かんたんモードを全ステージ突破': 'Clear every stage in Easy Mode',
+  '{#}kgの意地': '{#}kg of Pride', '体脂肪{#}のままステージをクリア': 'Clear a stage with {#} fat',
+  'ギリギリの細身': 'Barely Slim', '体脂肪{#}以下でステージをクリア': 'Clear a stage with {#} fat or less',
+  '暴走機関車': 'Runaway Train', '無敵中に{#}コンボ': '{#}-combo while invincible',
+  'すり抜けの達人': 'Close-Call Master', '{#}回のプレイでかすり{#}回': 'In {#} run, graze {#} times',
+  '顔面マニア': 'Face Fanatic', 'ボスの顔面に累計{#}回命中': 'Hit boss faces {#} times in total',
+  '部長キラー': 'Manager Killer', '中ボスを累計{#}体撃破': 'Defeat {#} mid-bosses in total',
+  '燃え尽き症候群': 'Burnout Syndrome', '体脂肪{#}で燃え尽きる': 'Burn out at {#} fat',
+  'もったいない精神': 'Waste Not', '跳ね返った脂肪を再吸収': 'Catch your own bounced fat',
+  'マシマシ': 'Extra Everything', 'マシマシラーメンを食べる': 'Eat the Extra-Everything Ramen',
+  '十万点の男': 'The 100K Man', '{#}回のプレイで{#}点': 'In {#} run, score {#} points',
+  '日課': 'Daily Grind', '今日のお題をクリア': 'Clear the Daily Task',
+  '命令却下': 'Order Rejected', 'ドリンクを使わずにボスの業務命令を却下する': 'Reject a Direct Order without a drink',
+  '終わらない残業': 'Endless Overtime', 'エンドレス残業で{#}周目に入る': 'Reach lap {#} in Endless Overtime',
+  '定時の勝者': 'Quitting-Time Champ', '社長戦をミスなしで撃破': 'Beat the CEO without getting hit',
+  '仕様凍結': 'Spec Freeze', 'クライアント戦をミスなしで撃破': 'Beat the Client without getting hit',
+  '素面の勝利': 'Sober Victory', '専務戦をミスなしで撃破': 'Beat the Director without getting hit',
+  '治験打ち切り': 'Trial Terminated', '薬師寺戦をミスなしで撃破': 'Beat Yakushiji without getting hit',
+  '社長も定時': 'CEO Clocks Out Too', '巨大化した社長をミスなしで撃破': 'Beat the giant CEO without getting hit',
+  '全件却下': 'All Rejected', '{#}回のボス戦で業務命令をドリンクなしで全部却下': 'Reject every Direct Order in {#} boss fight without a drink',
+  '裏の一歩': 'First Ura Step', '裏モードでSTAGE {#}を突破': 'Clear STAGE {#} in Ura Mode',
+  '裏の常連': 'Ura Regular',
+  '五連勤': 'Five-Day Streak', 'ボスラッシュを突破': 'Clear the Boss Rush',
+
+  /* ---------- 着せ替え ---------- */
+  'スーツ': 'Suit', 'ネクタイ': 'Tie', '頭': 'Head',
+  '紺スーツ': 'Navy Suit', 'グレースーツ': 'Gray Suit', '茶スーツ': 'Brown Suit', 'バブル白スーツ': 'Bubble-Era White Suit',
+  'ピンクスーツ': 'Pink Suit', 'リクルートスーツ': 'Job-Hunt Black Suit', 'ワインレッド': 'Wine Red', '社長室パープル': 'Executive Purple',
+  'クールビズ水色': 'Cool Biz Sky Blue', '金ラメスーツ': 'Gold Lamé Suit', '勝負のストライプ': 'Power Pinstripe',
+  '赤ストライプ': 'Red Stripe', '紺ストライプ': 'Navy Stripe', '若草ストライプ': 'Green Stripe', '金のネクタイ': 'Gold Tie',
+  '水玉ネクタイ': 'Polka-Dot Tie', 'なると柄': 'Fish Cake Swirl', '黒無地': 'Plain Black', '夕焼けストライプ': 'Sunset Stripe',
+  '裏紫ストライプ': 'Ura Purple Stripe', '蝶ネクタイ': 'Bow Tie',
+  'なし': 'None', '宴会はちまき': 'Party Headband', 'サングラス': 'Sunglasses', 'ふさふさカツラ': 'Fluffy Wig',
+  '余興の三角帽': 'Party Hat', '余興のトナカイ': 'Reindeer Antlers',
+
+  /* ---------- 今日のお題 ---------- */
+  '栄養ドリンク禁止': 'No energy drinks', '食べ物2倍': 'Double food', '弾速{#}倍': '{#}x bullet speed', '中ボス2倍硬い': 'Mid-bosses 2x tougher',
+
+  /* ---------- tips ---------- */
+  '{#} / {#}　ゲーム中に出会うと増えます': '{#} / {#}  More appear as you play',
+  'まだ出会っていません': 'Not discovered yet',
+  '硬い弾（鉄の輪）': 'Hard Bullets (Iron Rings)',
+  '<b>鉄の輪とボルト</b>が付いた弾は、脂肪弾で<b>消せません</b>。動いてよけよう。当てた脂肪弾は<b>弾かれて戻ってくる</b>ので、キャッチすれば脂肪に戻る。': 'Bullets with <b>iron rings and bolts</b> <b>can\'t be destroyed</b> by fat shots. Dodge them. Fat that hits them <b>bounces back</b>, so catch it to get your fat back.',
+  'ボスは顔を狙う': 'Aim for the Boss\'s Face',
+  'ボスは攻撃のあと<b>「スキあり！」</b>で顔の守りがゆるむ。赤い点線の輪が出ている間に<b>顔へ脂肪弾</b>を当てよう。': 'After attacking, a boss shows <b>"OPENING!"</b> and lowers his guard. While the red dotted ring is showing, hit <b>his face with fat</b>.',
+  '跳ね返して当てる（2面ボス）': 'Bank Shots (Stage 2 Boss)',
+  '無理田は<b>正面からの脂肪弾をはじく</b>。<b>左右どちらの壁</b>で跳ね返してもいいので、跳ねた弾を顔に当てよう。ためている間の狙い線が<b>黄色くなれば当たるコース</b>。': 'Murita <b>deflects fat shots from the front</b>. Bounce shots off <b>either side wall</b> and into his face. While charging, <b>a yellow aim line means it will hit</b>.',
+  '業務命令（ボスの必殺技）': 'Direct Orders (Boss Specials)',
+  'ボスの体力が減ると<b>業務命令</b>を出す。弾の形が決まっているので、すき間を見つけて<b>顔に当てれば却下</b>。ドリンクを使わずに却下すると<b>却下手当</b>（大きな点数）が出る。': 'When a boss gets weak he issues a <b>Direct Order</b>. Each one has a fixed bullet pattern, so find the gap and <b>hit his face to reject it</b>. Reject it without a drink to earn a <b>Rejection Bonus</b> (lots of points).',
+  '跳ね王冠（水色）': 'Bouncing Caps (Light Blue)',
+  '<b>水色の王冠</b>は左右の壁で<b>跳ね返る</b>。点線の輪が残っている間はまだ跳ねるので、壁ぎわに逃げると挟まれる。': '<b>Light-blue bottle caps</b> <b>bounce</b> off the side walls. They keep bouncing while the dotted ring remains, so hugging a wall gets you trapped.',
+  '専務の一気飲み': 'The Director\'s Chug',
+  '専務が<b>ジョッキを持ち上げたら</b>一気飲みの合図。輪が消える前に<b>ジョッキを撃つ</b>と、むせて長いスキができる。間に合わないと<b>体力が回復</b>してしまう。': 'When the Director <b>raises his mug</b>, he\'s about to chug. <b>Shoot the mug</b> before the ring closes and he chokes, leaving a long opening. Too slow and he <b>recovers health</b>.',
+  'フラスコは割れ': 'Break the Flasks',
+  '薬師寺部長が床に置く<b>フラスコ</b>は、輪が0になると<b>弾の輪</b>になって弾ける。脂肪弾を当てれば<b>その場で割れる</b>。同時に顔も開くので、割るか顔を狙うかを選ぼう。': 'The <b>flasks</b> Yakushiji sets down burst into <b>a ring of bullets</b> when their timer hits 0. Hit one with fat and it <b>breaks on the spot</b>. His face opens at the same time, so choose: break flasks or go for the face.',
+  '消せる': 'Destroyable', '消せない！': 'Indestructible!', 'まっすぐは はじく': 'Straight shots deflect', '【業務命令】': '[DIRECT ORDER]',
+  'ポーン': 'BOING', '割れる': 'Breaks', '放っておくと弾ける': 'Ignore it and it bursts',
+
+  /* ---------- 忘年会シーズン ---------- */
+  '忘年会シーズン': 'Year-End Party Season',
+  '{0}（{1}月）のスタンプ{2}個で解放': 'Unlock: {2} stamps in {0}',
+  '{0}　スタンプ {1}/{2}': '{0}  Stamps {1}/{2}',
+  '（また明日）': ' (See you tomorrow)',
+  '　コンプリート！': '  Complete!',
+  '着せ替え「{0}」をもらいました': 'You got the "{0}" outfit',
+  '開催中〜{#}/{#}': 'now until {#}/{#}',
+  'スタンプ {#}/{#}': 'Stamps {#}/{#}',
+  'スタンプ {#}/{#} 済': 'Stamps {#}/{#} ✓',
+  '{#}/{#}から': 'from {#}/{#}',
+  '予告': 'Coming soon',
+  '{#}/{#}〜{#}/{#}': '{#}/{#} - {#}/{#}',
+  '{#}/{#}〜{#}/{#}（もうすぐ）': '{#}/{#} - {#}/{#} (coming soon)',
+  '済': '✓',
+  '景品': 'Prize',
+  '{0}個': '{0} stamps',
+  '（もらった）': ' (received)',
+  '期間中、{#}日{#}回、どのモードでもステージを{#}つ突破するとスタンプが{#}個たまります。': 'During the event, clear any stage in any mode once a day to get a stamp.',
+  '期間中、{#}日{#}回、どのモードでもステージを{#}つ突破するとスタンプが{#}個たまります（今日はもう押しました。また明日）。': 'During the event, clear any stage in any mode once a day to get a stamp (already stamped today, see you tomorrow).',
+  '景品（頭の着せ替え）': 'Prizes (headwear)',
+  'もらった着せ替えは期間が終わっても使えます。スタンプは毎年数え直します。': 'Prizes stay yours after the event ends. Stamps reset every year.',
+
+  /* ---------- 毎日のお知らせ（アプリ版の通知） ---------- */
+  '毎日のお知らせ': 'Daily reminders',
+  'お知らせの時刻': 'Reminder time',
+  '今日のお題と季節イベント': 'Daily Task and seasonal events',
+  '係長、最近見かけませんね': 'Chief, we haven\'t seen you lately',
+  '専務がお待ちです。今日のお題で肩慣らしをどうぞ。': 'The Director is waiting. Warm up with today\'s Daily Task.',
+  '係長の席が片付けられそうです': 'They\'re about to clear out your desk',
+  'お知らせはこれで最後です。またいつでも退勤しに来てください。': 'This is our last reminder. Come clock out any time.',
+  '{0} 開幕': '{0} has begun',
+  '{0} 最終日': 'Last day of {0}',
+  '{0}（スタンプ {1}/{2}）': '{0} (Stamps {1}/{2})',
+  '{0} 開催中': '{0} is on',
+  '{0}まで。ステージを突破してスタンプを集めると、限定の着せ替えがもらえます。': 'Until {0}. Clear stages to collect stamps and win limited outfits.',
+  'ステージを{#}つ突破すると、今日のスタンプが押せます。': 'Clear a stage to get today\'s stamp.',
+  '{#}:{#}、定時です': 'It\'s {#}:{#}. Quitting time!',
+  '今日のお題が出ています': 'Today\'s Daily Task is here',
+  '{0}のお題：{1}・{2}{3}。今日こそ定時で帰りましょう。': '{0} task: {1}, {2}{3}. Leave on time today!',
+  '（裏）': ' (Ura)',
+  '毎日{0}:00にお知らせします': 'We\'ll remind you daily at {0}:00',
+  '端末の設定で通知が許可されませんでした': 'Notifications were not allowed in your device settings',
+  '端末の設定で、このアプリの通知を許可してください': 'Please allow notifications for this app in your device settings',
+  '毎日{#}:{#}に、その日のお題をお知らせします。{#}月は忘年会シーズンのお知らせも届きます。': 'We\'ll tell you the Daily Task every day at {#}:{#}. In December you\'ll also get Year-End Party Season news.',
+  '遊ばない日が続いたら2週間で止まります。設定からいつでも切り替えられます。': 'Reminders stop after two weeks without play. Change this any time in Settings.',
+  '受け取る': 'Yes, remind me',
+  'いらない': 'No thanks',
 });
 
 // 日本語のまま出す文：背景の看板・机の名札・弾や判子の文字（絵の一部）
@@ -5708,7 +5821,7 @@ function dailyInfo(d = today()) {
   const h = Math.imul(key, 2654435761) >>> 0;
   // 裏の日でも、通常モードを1回クリアするまでは通常に置き換える（初見で裏は難しすぎる）
   const uraDay = (h >>> 3) % 3 === 0, ura = uraDay && normalCleared();
-  return { key, stage: h % 3, ura, uraHeld: uraDay && !ura, mod: MODS[(h >>> 5) % MODS.length], label: `${d.getMonth() + 1}月${d.getDate()}日` };
+  return { key, stage: h % 3, ura, uraHeld: uraDay && !ura, mod: MODS[(h >>> 5) % MODS.length], label: LANG === 'en' ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `${d.getMonth() + 1}月${d.getDate()}日` };
 }
 function normalCleared() { const b = G.best || {}; return !!(b.clears || META.ach.clear); }
 // 裏モード・エンドレス残業は通常モードを1回クリアすると解放（前の版で裏や2周目まで遊んだ人もそのまま解放）
@@ -5849,7 +5962,7 @@ function bindPlayButton(id, reopen, open) {
 }
 function showAchievements() {
   const n = ACHS.filter(a => META.ach[a.id]).length;
-  openPanel('実績', `<p class="pnote">${n} / ${ACHS.length} 解除</p><ul class="achs">${ACHS.map(a => `<li class="${META.ach[a.id] ? 'got' : ''}"><b>${META.ach[a.id] ? '★' : '☆'} ${esc(a.name)}</b><span>${esc(a.desc)}</span></li>`).join('')}</ul>${playButton('storeAch', 'Play ゲームの実績を見る')}`);
+  openPanel('実績', `<p class="pnote">${n} / ${ACHS.length} 解除</p><ul class="achs">${ACHS.map(a => `<li class="${META.ach[a.id] ? 'got' : ''}"><b>${META.ach[a.id] ? '★' : '☆'} ${esc(tr(a.name))}</b><span>${esc(tr(a.desc))}</span></li>`).join('')}</ul>${playButton('storeAch', 'Play ゲームの実績を見る')}`);
   bindPlayButton('storeAch', showAchievements, () => GameServices.showAchievements());
 }
 function showCostume() {
@@ -5857,7 +5970,7 @@ function showCostume() {
     const d = list[id], have = owned(list, id), sel = META.cos[kind] === id;
     const sw = d.sw || (kind === 'suit' ? d.mid : d.col);
     return `<button type="button" class="cos${sel ? ' sel' : ''}" data-kind="${kind}" data-id="${id}" ${have ? '' : 'data-locked="1"'}>
-      <span class="sw" style="background:${sw}"></span><b>${esc(d.name)}</b><small>${have ? (sel ? '着用中' : 'タップで着る') : esc(condText(d))}</small></button>`;
+      <span class="sw" style="background:${sw}"></span><b>${esc(tr(d.name))}</b><small>${have ? (sel ? '着用中' : 'タップで着る') : esc(condText(d))}</small></button>`;
   };
   openPanel('着せ替え', `<canvas id="cosPrev" width="240" height="240" aria-label="着せ替えの見た目"></canvas>
     ${Object.keys(COS).map(kind => `<h3>${COS_LABEL[kind]}</h3><div class="cosgrid">${Object.keys(COS[kind]).map(k => item(kind, COS[kind], k)).join('')}</div>`).join('')}`);
@@ -6073,7 +6186,7 @@ const seasonCount = key => Object.keys(META.ev[key] || {}).length;
 const seasonStampedToday = (s, d = today()) => !!(META.ev[s.key] && META.ev[s.key][dayKey(d)]);
 function seasonCondText(d) {
   const s = SEASONS.find(x => x.id === d.ev);
-  return `${s.name}（${s.from[0]}月）のスタンプ${d.stamps}個で解放`;
+  return t('{0}（{1}月）のスタンプ{2}個で解放', tr(s.name), s.from[0], d.stamps);
 }
 // ステージを突破したときに呼ぶ（テストプレイは除く）。押せたら true
 function seasonStamp() {
@@ -6084,8 +6197,8 @@ function seasonStamp() {
   const n = Object.keys(book).length, got = seasonPrizes(s.id).filter(([id, h]) => h.stamps === n && !META.unlocked[id]);
   for (const [id] of got) META.unlocked[id] = Date.now();
   saveMeta();
-  toast(`${s.name}　スタンプ ${n}/${goal}` + (n < goal ? '（また明日）' : '　コンプリート！'));
-  for (const [, h] of got) toast(`着せ替え「${h.name}」をもらいました`);
+  toast(t('{0}　スタンプ {1}/{2}', tr(s.name), n, goal) + tr(n < goal ? '（また明日）' : '　コンプリート！'));
+  for (const [, h] of got) toast(t('着せ替え「{0}」をもらいました', tr(h.name)));
   updateSeasonBanner();
   return true;
 }
@@ -6096,17 +6209,17 @@ function updateSeasonBanner() {
   el.hidden = !s && !soon;
   if (s) {
     const n = seasonCount(s.key), goal = seasonGoal(s.id);
-    el.innerHTML = `<b>${esc(s.name)}</b> 開催中〜${s.until}<span class="evn">スタンプ ${n}/${goal}${seasonStampedToday(s) ? ' 済' : ''}</span>`;
-  } else if (soon) el.innerHTML = `<b>${esc(soon.name)}</b> ${soon.from[0]}/${soon.from[1]}から<span class="evn">予告</span>`;
+    el.innerHTML = `<b>${esc(tr(s.name))}</b> 開催中〜${s.until}<span class="evn">スタンプ ${n}/${goal}${seasonStampedToday(s) ? ' 済' : ''}</span>`;
+  } else if (soon) el.innerHTML = `<b>${esc(tr(soon.name))}</b> ${soon.from[0]}/${soon.from[1]}から<span class="evn">予告</span>`;
 }
 function showSeason() {
   const s = seasonOf(), base = s || seasonSoon(); if (!base) return;
   const id = base.id, goal = seasonGoal(id), n = s ? seasonCount(s.key) : 0, prizes = seasonPrizes(id);
   const at = Object.fromEntries(prizes.map(([pid, h]) => [h.stamps, h]));
   const cells = Array.from({ length: goal }, (_, i) => `<span class="stamp${i < n ? ' on' : ''}${at[i + 1] ? ' prize' : ''}">${i < n ? '済' : at[i + 1] ? '景品' : i + 1}</span>`).join('');
-  const list = prizes.map(([pid, h]) => `<li><b>${h.stamps}個</b>　${esc(h.name)}${META.unlocked[pid] ? '（もらった）' : ''}</li>`).join('');
+  const list = prizes.map(([pid, h]) => `<li><b>${t('{0}個', h.stamps)}</b>　${esc(tr(h.name))}${META.unlocked[pid] ? tr('（もらった）') : ''}</li>`).join('');
   const when = `${base.from[0]}/${base.from[1]}〜${base.to[0]}/${base.to[1]}`;
-  openPanel(base.name, `
+  openPanel(tr(base.name), `
     <p class="pdate">${when}${s ? '' : '（もうすぐ）'}</p>
     <div class="stamps" aria-label="スタンプ ${n}/${goal}">${cells}</div>
     <p class="pnote">期間中、1日1回、どのモードでもステージを1つ突破するとスタンプが1個たまります${s && seasonStampedToday(s) ? '（今日はもう押しました。また明日）' : ''}。</p>
@@ -6129,20 +6242,20 @@ const LAST_PLAY = 'lastPlay'; // Store：最後に遊んだ日（dayKey）
 
 // その日のお知らせの文面（back：今日から何日後か）。季節イベント中はそちらを優先
 function notifyText(d, hour, back) {
-  if (back === 6) return { title: '係長、最近見かけませんね', body: '専務がお待ちです。今日のお題で肩慣らしをどうぞ。' };
-  if (back === 13) return { title: '係長の席が片付けられそうです', body: 'お知らせはこれで最後です。またいつでも退勤しに来てください。' };
+  if (back === 6) return { title: tr('係長、最近見かけませんね'), body: tr('専務がお待ちです。今日のお題で肩慣らしをどうぞ。') };
+  if (back === 13) return { title: tr('係長の席が片付けられそうです'), body: tr('お知らせはこれで最後です。またいつでも退勤しに来てください。') };
   const s = seasonOf(d);
   if (s && !(META.ev[s.key] && META.ev[s.key][dayKey(d)])) {
     const n = seasonCount(s.key), goal = seasonGoal(s.id), first = md(d) === s.from[0] * 100 + s.from[1], last = md(d) === s.to[0] * 100 + s.to[1];
     if (n < goal) return {
-      title: first ? `${s.name} 開幕` : last ? `${s.name} 最終日` : back === 0 ? `${s.name}（スタンプ ${n}/${goal}）` : `${s.name} 開催中`, // 先の日の数は変わるので今日だけ出す
-      body: first ? `${s.until}まで。ステージを突破してスタンプを集めると、限定の着せ替えがもらえます。` : 'ステージを1つ突破すると、今日のスタンプが押せます。',
+      title: first ? t('{0} 開幕', tr(s.name)) : last ? t('{0} 最終日', tr(s.name)) : back === 0 ? t('{0}（スタンプ {1}/{2}）', tr(s.name), n, goal) : t('{0} 開催中', tr(s.name)), // 先の日の数は変わるので今日だけ出す
+      body: first ? t('{0}まで。ステージを突破してスタンプを集めると、限定の着せ替えがもらえます。', s.until) : tr('ステージを1つ突破すると、今日のスタンプが押せます。'),
     };
   }
   const info = dailyInfo(d), st = STAGES[info.stage];
   return {
-    title: hour === 18 ? '18:00、定時です' : '今日のお題が出ています',
-    body: `${info.label}のお題：${st.name}・${info.mod.name}${info.ura ? '（裏）' : ''}。今日こそ定時で帰りましょう。`,
+    title: tr(hour === 18 ? '18:00、定時です' : '今日のお題が出ています'),
+    body: t('{0}のお題：{1}・{2}{3}。今日こそ定時で帰りましょう。', info.label, st.name, tr(info.mod.name), info.ura ? tr('（裏）') : ''),
   };
 }
 // この先のお知らせの予定（純粋な計算だけ。smoke でも確かめる）
@@ -6165,7 +6278,7 @@ const Notify = {
   async init() {
     if (!this.available()) return;
     const ln = this.plugin();
-    try { await ln.createChannel({ id: NOTIFY_CHANNEL, name: '毎日のお知らせ', description: '今日のお題と季節イベント', importance: 3, visibility: 1 }); } catch (e) {}
+    try { await ln.createChannel({ id: NOTIFY_CHANNEL, name: tr('毎日のお知らせ'), description: tr('今日のお題と季節イベント'), importance: 3, visibility: 1 }); } catch (e) {}
     // お知らせをタップして開いたら、今日のお題を出す（遊んでいる途中なら何もしない）
     try { ln.addListener('localNotificationActionPerformed', () => { if (G.mode === 'title' && ovPanel.hidden) showDaily(); }); } catch (e) {}
     this.reschedule();
@@ -6203,7 +6316,7 @@ const Notify = {
       <p class="pnote">遊ばない日が続いたら2週間で止まります。設定からいつでも切り替えられます。</p>
       <button id="notifYes" class="btn" type="button">受け取る</button>
       <button id="notifNo" class="ghost" type="button">いらない</button>`);
-    $('notifYes').addEventListener('click', async () => { closePanel(); toast((await this.enable()) ? `毎日${this.hour()}:00にお知らせします` : '端末の設定で通知が許可されませんでした'); });
+    $('notifYes').addEventListener('click', async () => { closePanel(); toast((await this.enable()) ? t('毎日{0}:00にお知らせします', this.hour()) : tr('端末の設定で通知が許可されませんでした')); });
     $('notifNo').addEventListener('click', () => { SETTINGS.notif = false; saveSettings(); closePanel(); });
   },
 };
@@ -6347,7 +6460,7 @@ function tipTick() {
 function showTip(tip) {
   G.mode = 'tip'; P.charging = false; chargeSound(false); ptr = mptr = fptr = null; for (const k in keys) keys[k] = false;
   musicStop();
-  $('tipTitle').textContent = tip.title; $('tipBody').innerHTML = tip.body; drawTipArt($('tipArt'), tip);
+  $('tipTitle').textContent = tr(tip.title); $('tipBody').innerHTML = tr(tip.body); drawTipArt($('tipArt'), tip);
   $('ovTip').hidden = false; $('tipOk').focus({ preventScroll: true });
   sfx('pick');
 }
@@ -6370,7 +6483,7 @@ function showTipsBook() {
   const n = TIPS.filter(t => TIPS_SEEN[t.id]).length;
   openPanel('tips集', `<p class="pnote">${n} / ${TIPS.length}　ゲーム中に出会うと増えます</p>
     <ul class="tips">${TIPS.map(t => TIPS_SEEN[t.id]
-      ? `<li><b>${esc(t.title)}</b><canvas class="tipart" data-tip="${t.id}" aria-hidden="true"></canvas><p>${t.body}</p></li>`
+      ? `<li><b>${esc(tr(t.title))}</b><canvas class="tipart" data-tip="${t.id}" aria-hidden="true"></canvas><p>${tr(t.body)}</p></li>`
       : '<li class="lock"><b>？？？</b><p>まだ出会っていません</p></li>').join('')}</ul>`);
   panelBody.querySelectorAll('canvas[data-tip]').forEach(cvs => drawTipArt(cvs, tipById(cvs.dataset.tip)));
 }
