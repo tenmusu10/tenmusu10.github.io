@@ -456,7 +456,7 @@ body{
           <li><b>栄養ドリンク</b>は<wbr>1本まで<wbr>持てる。<wbr>右下の<wbr><b>「無敵」</b>で<wbr>好きなときに<wbr>6秒間無敵。<wbr>障害物に<wbr>体当たりで<wbr>粉砕。<wbr>ボスへの<wbr>体当たりは<wbr>1本で2回まで。</li>
           <li>壊した物で<wbr>点が違う<wbr>（部長500・<wbr>車400・<wbr>上司200 など）。<wbr>無敵中の<wbr>体当たりは<wbr>2倍で、<wbr>続けて壊すほど<wbr>最大×3。</li>
           <li>ボスは<wbr>体力が減ると<wbr><b>業務命令</b>を<wbr>発令。<wbr>ドリンクを<wbr>使わずに<wbr>顔面に当てて<wbr><b>却下</b>すれば<wbr>却下手当（大量点）。</li>
-          <li><b>エンドレス残業</b>は<wbr>3つのフロアを<wbr>ぐるぐる周回。<wbr>周るほど<wbr>敵が増えて、<wbr>点も伸びる。</li>
+          <li><b>エンドレス残業</b>は<wbr>5つのフロアを<wbr>ぐるぐる周回。<wbr>周るほど<wbr>敵が増えて、<wbr>点も伸びる。</li>
         </ol>
         <p class="pc">PC：<wbr>←→↑↓で移動／<wbr>Spaceで発射／<wbr>Space長押し→<wbr>←→で狙って離すと<wbr>狙い撃ち／<wbr>Xでドリンク／<wbr>Pで一時停止</p>
       </div>
@@ -1221,6 +1221,506 @@ function initAppEvents() {
 }
 </script>
 <script>
+// メタボリック・バースト：英語表示。日本語の文そのものをキーにして、js/lang-en.js の EN から英語を引く
+// 日本語のときは何もしない（今までと同じ表示・同じ速さ）。訳が無い文は日本語のまま出る
+'use strict';
+const LANGS = ['ja', 'en'];
+// 英語の訳がそろうまでは、端末の言語で自動では切り替えない（設定の「言語」と ?lang=en だけ）
+const LANG_AUTO = false;
+const LANG = (() => {
+  try { const q = new URLSearchParams(location.search).get('lang'); if (LANGS.includes(q)) return q; } catch (e) {}
+  if (LANGS.includes(SETTINGS.lang)) return SETTINGS.lang;
+  if (!LANG_AUTO) return 'ja';
+  const nav = (navigator.languages && navigator.languages[0]) || navigator.language || 'ja';
+  return /^ja\b/i.test(nav) ? 'ja' : 'en';
+})();
+const EN = {}; // js/lang-en.js が埋める。キーの {#} は数字（'残機{#}' → 'LIVES {#}'）
+const I18N_KEEP = new Set(); // 日本語のまま出す文（背景の看板・机の名札・弾の判子など。読めなくても遊べる絵の一部）
+const JP_RE = /[　-ヿ㐀-鿿＀-￯]/;
+const NUM_RE = /\d[\d,]*(?:\.\d+)?/g; // 1,579 や 98.5 も1つの数字
+const I18N_MISS = new Set(); // 訳が無かった文（tools/i18n-check.js が見る）
+const trCache = new Map();
+// 文を1つ訳す。そのままのキーが無ければ、数字を {#} にしたキーを探して数字を戻す
+function tr(s) {
+  if (LANG === 'ja' || typeof s !== 'string' || !JP_RE.test(s)) return s;
+  let r = trCache.get(s);
+  if (r !== undefined) return r;
+  r = EN[s];
+  if (r === undefined && !JP_RE.test(s.replace(/\u3000/g, ''))) r = s.replace(/\u3000/g, '  '); // 訳した名前を全角の空白でつないだだけの文
+  if (r === undefined) {
+    const nums = s.match(NUM_RE), k = nums && EN[s.replace(NUM_RE, '{#}')];
+    if (k !== undefined && k !== null && nums) { let i = 0; r = k.replace(/\{#\}/g, () => nums[i++] ?? ''); }
+  }
+  if (r === undefined || r === null) { r = s; if (!I18N_KEEP.has(s)) I18N_MISS.add(s); }
+  if (trCache.size > 3000) trCache.clear(); // 無敵の残り秒数などで数字違いが増え続けないように
+  trCache.set(s, r);
+  return r;
+}
+// 名前入りの文：t('{0}でこのフロアから', name)。{0} などは訳したあとに入れる
+const t = (key, ...args) => tr(key).replace(/\{(\d)\}/g, (m, i) => args[i] ?? '');
+
+// 画面の文字を訳す。<b> や <br> を含む塊は、塊ごとのキー（<wbr> と空白の違いは無視）を先に探す
+const htmlKey = h => h.replace(/<wbr>/g, '').replace(/[ \t\r\n]+/g, ' ').trim(); // 全角の空白は残す
+function localize(root) {
+  if (LANG === 'ja' || !root) return;
+  if (root.nodeType === 3) { localizeText(root); return; }
+  if (root.nodeType === 1) {
+    for (const a of ['aria-label', 'title']) if (root.hasAttribute(a)) { const v = root.getAttribute(a), r = tr(v); if (r !== v) root.setAttribute(a, r); }
+    if (root.tagName === 'SCRIPT' || root.tagName === 'STYLE' || root.tagName === 'CANVAS') return;
+    if (root.tagName === 'TEMPLATE') { localize(root.content); return; }
+    if (root.firstElementChild && JP_RE.test(root.textContent)) {
+      const k = htmlKey(root.innerHTML), r = EN[k];
+      if (typeof r === 'string') { root.innerHTML = r; return; }
+    }
+  }
+  for (const n of [...root.childNodes]) localize(n);
+}
+function localizeText(n) {
+  const s = n.nodeValue, m = s.trim();
+  if (!m || !JP_RE.test(m)) return;
+  const r = tr(m);
+  if (r !== m) n.nodeValue = s.replace(m, r);
+}
+// 後から書き換わる画面（パネル・結果・トースト・チュートリアル）も、描かれる前に訳す
+function startLocalize() {
+  if (LANG === 'ja') return;
+  document.documentElement.lang = 'en';
+  document.title = tr(document.title);
+  localize(document.body);
+  try {
+    new MutationObserver(list => {
+      for (const m of list) {
+        if (m.type === 'characterData') { localizeText(m.target); continue; }
+        const el = m.target; // innerHTML で入った塊は、塊ごとの訳を先に探す
+        if (el.nodeType === 1 && el.isConnected && el.firstElementChild && JP_RE.test(el.textContent)) {
+          const r = EN[htmlKey(el.innerHTML)];
+          if (typeof r === 'string') { el.innerHTML = r; continue; }
+        }
+        for (const n of m.addedNodes) if (n.isConnected) localize(n);
+      }
+    }).observe(document.body, { childList: true, characterData: true, subtree: true });
+  } catch (e) {}
+}
+</script>
+<script>
+// メタボリック・バースト：英語の訳（js/i18n.js の EN）。キーは画面に出る日本語そのもの
+// {#} は数字、{0} {1} は t() で入れる名前。<b> などの塊は <wbr> と改行を抜いた形がキー
+// 訳し漏れは node tools/i18n-check.js <index.html> で探す
+'use strict';
+Object.assign(EN, {
+  /* ---------- 名前（主人公・ステージ・ボス） ---------- */
+  'メタボリック・バースト': 'Metabolic Burst',
+  '営業部 係長': 'Sales Section Chief',
+  '重田 定時': 'Sadatoki Shigeta',
+  '重田': 'Shigeta',
+  '本社5F 営業部前廊下': 'HQ 5F, Sales Dept. Hallway',
+  'オフィス街 駅前通り': 'Business District, Station Street',
+  '飲み屋街 ガード下': 'Bar Alley, Under the Tracks',
+  '地下鉄 終電ホーム': 'Subway, Last Train Platform',
+  '住宅街 自宅前': 'Suburbs, Home Sweet Home',
+  '代表取締役社長': 'CEO',
+  '代表取締役社長（Z50本）': 'CEO (50 Z Shots)',
+  '超大口クライアント': 'Mega Client',
+  '専務取締役': 'Senior Managing Director',
+  '研究開発部長': 'Head of R&D',
+  '鬼瓦 権蔵': 'Gonzo Onigawara',
+  '無理田 言造': 'Iuzo Murita',
+  '酒井 呑兵衛': 'Nonbe Sakai',
+  '薬師寺 濃造': 'Nozo Yakushiji',
+  '本気の人事部長': 'Dead-Serious HR Manager',
+  '取引先の鬼部長': "Client's Demon Manager",
+  '泥酔した営業部長': 'Drunk Sales Manager',
+  'Zで復活した人事部長': 'HR Manager, Revived by Z',
+  '白衣の主任研究員': 'Lab-Coat Researcher',
+  'かんたん': 'Easy',
+  'かんたんモード': 'Easy Mode',
+  '敵と弾が少なめ・残機多め': 'Fewer enemies & bullets, more lives',
+
+  /* ---------- タイトル ---------- */
+  '弾幕系・脂肪で撃つ退勤アクション': 'Bullet hell. Belly fat. Go home.',
+  '～決死の退勤エスケープ～': '~ The Desperate Clock-Out Escape ~',
+  '退勤を打刻': 'CLOCK OUT',
+  '定時<strong>18:00</strong>': 'Off at<strong>18:00</strong>',
+  '通常モード': 'Normal Mode',
+  'いつもの退勤・残機2': 'The usual commute, 2 lives',
+  '裏モード突入': 'Enter Ura Mode',
+  '敵1.7倍・弾速UP・ボス強化': '1.7x enemies, faster bullets, tougher bosses',
+  'つづきから': 'Continue',
+  '{#}面から・記録なし': 'From floor {#}, no record',
+  'STAGE {#}から・記録なし': 'From STAGE {#}, no record',
+  'かんたん・STAGE {#}から・記録なし': 'Easy, from STAGE {#}, no record',
+  '広告': 'AD',
+  '残機+1で始める': 'Start with +1 life',
+  '残機{#}でつづきから': 'Continue with {#} lives',
+  'エンドレス残業': 'Endless Overtime',
+  '全5面を周回・周るほど高得点': 'Loop all 5 stages, more laps = more points',
+  '🔒 通常モードを突破すると解放': '🔒 Clear Normal Mode to unlock',
+  '通常モードを突破すると解放': 'Clear Normal Mode to unlock',
+  'メニュー': 'Menu',
+  '今日のお題': 'Daily Task',
+  'ボスモード': 'Boss Mode',
+  '着せ替え': 'Wardrobe',
+  'ランキング': 'Rankings',
+  '実績': 'Achievements',
+  'その他 ▾': 'More ▾',
+  'その他 ▴': 'More ▴',
+  '遊び方': 'How to Play',
+  'あらすじ': 'Story So Far',
+  'tips集': 'Tips',
+  '設定': 'Settings',
+  'テスト用ステージ選択': 'Test stage select',
+  'テスト：': 'Test:',
+  '{#}面': '{#}',
+  '裏：OFF': 'Ura: OFF',
+  '裏：ON': 'Ura: ON',
+  'まだ誰も無事に帰れていません': 'Nobody has made it home yet',
+  'ハイスコア {#}': 'Hi-score {#}',
+  'かんたん {#}': 'Easy {#}',
+  '裏 {#}': 'Ura {#}',
+  '残業 {#}': 'Endless {#}',
+  '帰宅 {#}回': 'Home {#}x',
+  'Android版をGoogle Playで入手': 'Get the Android version on Google Play',
+  'ゲーム画面': 'Game screen',
+  '裏モード・エンドレス残業 解放！（タイトルから）': 'Ura Mode & Endless Overtime unlocked! (from the title)',
+
+  /* ---------- チュートリアル ---------- */
+  'チュートリアル': 'Tutorial',
+  'できた！': 'Nice!',
+  '次へ ▶': 'Next ▶',
+  'スキップ': 'Skip',
+  '今後表示しない': "Don't show again",
+  'チュートリアルは設定からまた表示できます': 'You can turn the tutorial back on in Settings',
+  '次の1面（通常）でチュートリアルが出ます': 'The tutorial will show on your next Stage 1 (Normal)',
+  '画面をスワイプして<b>移動</b>': 'Swipe the screen to <b>move</b>',
+  '<b>←→↑↓</b>（ドラッグでも可）で<b>移動</b>': '<b>Arrow keys</b> (or drag) to <b>move</b>',
+  '右下の<b>「撃つ」</b>でお腹の<b>脂肪</b>を発射。<br>押しっぱなしで連射': 'Tap <b>FIRE</b> (bottom right) to shoot your belly <b>fat</b>.<br>Hold it for rapid fire',
+  '<b>Space</b>を軽く押して<br>お腹の<b>脂肪</b>を発射': 'Tap <b>Space</b> to<br>shoot your belly <b>fat</b>',
+  '<span class="tkey">ここがキモ！</span><br>撃つほど痩せて、<b>赤い点線の当たり判定</b>が<b>小さく</b>なる。<br>細いほど弾をすり抜けやすい': '<span class="tkey">THE KEY IDEA!</span><br>The more you shoot, the thinner you get, and the <b>red dotted hitbox</b> gets <b>smaller</b>.<br>Thin = easier to slip through bullets',
+  'ただし下の<b>脂肪の弾</b>が<b>尽きる</b>と<br><b class="tdead">燃え尽きて死亡</b>。<br>右上の<b>スコア倍率</b>も痩せるほど下がる': 'But if your <b>fat ammo</b> (bottom) <b>runs out</b>,<br>you <b class="tdead">burn out and die</b>.<br>Your <b>score multiplier</b> (top right) also drops as you slim down',
+  '尽きても<b>2秒だけ猶予</b>がある。<br>そのあいだに<b>食べ物</b>を取れば<b>復活</b>！<br>おにぎりを取って脂肪を戻そう': 'Out of fat? You get <b>2 seconds of grace</b>.<br>Grab <b>food</b> in time to <b>recover</b>!<br>Grab the rice ball to refill',
+  '<b>お腹を下に引っ張って離す</b>と狙い撃ち。<br>移動中はもう1本の指を<b>長押し→左右で狙って離す</b>でもOK。<br>跳ね返った脂肪は<b>お腹で受けると再吸収</b>': '<b>Pull your belly down and release</b> for an aimed shot.<br>While moving, <b>hold a second finger, slide to aim, release</b>.<br><b>Catch bounced fat with your belly</b> to reabsorb it',
+  '<b>Spaceを長押し</b>→<b>←→で狙って離す</b>と狙い撃ち。<br>跳ね返った脂肪は<b>お腹で受けると再吸収</b>': '<b>Hold Space</b>, <b>aim with ←→, release</b> for an aimed shot.<br><b>Catch bounced fat with your belly</b> to reabsorb it',
+  '<b>赤く光る</b>のは障害物。<br>避けるか、撃って壊そう': 'Things that <b>glow red</b> are obstacles.<br>Dodge them or shoot them down',
+  'その調子！ <b>出口</b>まで走り抜けろ': 'Nice! Now run for the <b>exit</b>',
+  '← 当たり判定': '← Hitbox',
+  '当たり判定 →': 'Hitbox →',
+
+  /* ---------- 遊び方 ---------- */
+  '主人公：{0}': 'Hero: {0}',
+  '今日こそ定時の18:00に退勤したい。': 'Today, he WILL leave at 18:00 sharp.',
+  '退勤マニュアル': 'Clock-Out Manual',
+  '<b>スワイプ</b>で上下左右に移動。当たり判定は<b>お腹</b>で、見た目よりちょっと小さめ。': '<b>Swipe</b> to move. Your hitbox is your <b>belly</b>, a bit smaller than it looks.',
+  '<b>赤く光る・赤い点線</b>は障害物。当たると残業確定。<b style="color:#146b38">緑に光る＋1</b>は食べ物。': '<b>Red glow or red dotted lines</b> = obstacles. Touch one and it\'s overtime for you. <b style="color:#146b38">Green glow +1</b> = food.',
+  '右下の<b>「撃つ」</b>で脂肪が飛ぶ。押しっぱなしで連射。<b>お腹から下に引っ張って離す</b>と狙い撃ち。移動中はもう1本の指でタップすると発射、<b>置いたまま長押し</b>→左右にずらして狙って離すと狙い撃ち（下に引っ張ってもよい）。': '<b>FIRE</b> (bottom right) launches fat. Hold for rapid fire. <b>Pull down from your belly and release</b> for an aimed shot. While moving, tap with a second finger to fire, or <b>hold it still</b>, slide left/right to aim and release (pulling down works too).',
+  '当たっても<b>残機</b>があればその場で立て直せる（最初は2つ・再挑戦ではそのフロアに入ったときの数・最低1）。': 'Got hit? With <b>lives</b> left you recover on the spot (2 at the start; on retry, what you had entering the floor, at least 1).',
+  '撃つほど痩せて当たり判定が小さくなる。でも脂肪<b>0</b>のまま2秒たつとガリガリに燃え尽きる。すぐ食べれば助かる。': 'Shooting slims you down and shrinks your hitbox. But stay at <b>0</b> fat for 2 seconds and you burn out. Eat something fast to survive.',
+  '太っているほどスコアが伸びる。食べて回復：おにぎり／からあげは貫通弾／マシマシラーメンは全回復。': 'The fatter you are, the more you score. Eat to refill: rice ball / fried chicken = piercing shot / mega ramen = full refill.',
+  '<b>栄養ドリンク</b>は1本まで持てる。右下の<b>「無敵」</b>で好きなときに6秒間無敵。障害物に体当たりで粉砕。ボスへの体当たりは1本で2回まで。': 'You can carry one <b>energy drink</b>. Hit <b>INVINCIBLE</b> (bottom right) any time for 6 seconds of invincibility. Body-slam obstacles to smash them. Up to 2 boss slams per drink.',
+  '壊した物で点が違う（部長500・車400・上司200 など）。無敵中の体当たりは2倍で、続けて壊すほど最大×3。': 'Points depend on what you smash (manager 500, car 400, supervisor 200, etc.). Invincible slams score double, up to x3 for chains.',
+  'ボスは体力が減ると<b>業務命令</b>を発令。ドリンクを使わずに顔面に当てて<b>却下</b>すれば却下手当（大量点）。': 'Hurt bosses issue a <b>Direct Order</b>. Hit their face without using a drink to <b>REJECT</b> it and earn a Rejection Bonus (big points).',
+  '<b>エンドレス残業</b>は5つのフロアをぐるぐる周回。周るほど敵が増えて、点も伸びる。': '<b>Endless Overtime</b> loops all 5 floors. Each lap adds enemies, and points.',
+  'PC：←→↑↓で移動／Spaceで発射／Space長押し→←→で狙って離すと狙い撃ち／Xでドリンク／Pで一時停止': 'PC: arrows to move / Space to fire / hold Space, aim with ←→, release for an aimed shot / X for drink / P to pause',
+
+  /* ---------- プレイ中の表示（canvas） ---------- */
+  '撃つ': 'FIRE',
+  '無敵': 'INVINC.',
+  '無敵 X': 'INV. X',
+  '使用中': 'IN USE',
+  '空': 'EMPTY',
+  '残機': 'LIVES',
+  '脂肪の弾': 'FAT AMMO',
+  '体格×{#}': 'SIZE×{#}',
+  '当たり判定': 'HITBOX',
+  '腹圧 {#}%': 'BELLY {#}%',
+  '無敵 {#}秒': 'INVINCIBLE {#}s',
+  'かすり {#}': 'GRAZE {#}',
+  '裏 STAGE {#}': 'URA STAGE {#}',
+  '{#}周 STAGE {#}': 'LAP {#} STAGE {#}',
+  '却下手当': 'REJECT BONUS',
+  '手当なし（Z使用）': 'No bonus (drink used)',
+  '手当なし': 'No bonus',
+  '決裁期限': 'DEADLINE',
+  '件名 {0}': 'RE: {0}',
+  '業務命令　第{#}号': 'DIRECT ORDER No.{#}',
+  'ボス接近：{0}': 'BOSS INCOMING: {0}',
+  'これに当たった': 'This got you',
+  '残業': 'OVER',
+  '確定': 'TIME',
+  '燃え': 'BURNT',
+  '尽き': 'OUT',
+  '元気': 'Energy',
+  'おにぎり': 'Rice ball',
+  'からあげ（貫通）': 'Fried chicken (pierce)',
+  'マシマシラーメン': 'Mega ramen',
+  '栄養ドリンク': 'Energy drink',
+  'エクステンド': '1UP',
+  '全回復': 'Full refill',
+  '◀◀ 車が来るぞ！': '◀◀ CAR COMING!',
+  '車が来るぞ！ ▶▶': 'CAR COMING! ▶▶',
+  '動く歩道 ▲': 'MOVING WALK ▲',
+  '逆走歩道 ▼': 'REVERSE WALK ▼',
+  'ジョッキを撃て！': 'Shoot the mug!',
+  '瓶を撃て！': 'Shoot the bottle!',
+  '跳ね返して当てろ！': 'Bounce it off!',
+  '顔面チャンス！': 'FACE CHANCE!',
+  '当たる！': 'ON TARGET!',
+  'ちょっといいかな？': 'Got a minute?',
+  '待ちたまえ！': 'Wait right there!',
+  '一杯どうっすか！': 'One drink, sir?',
+  'ヒック': 'Hic',
+  'ゴクッ': 'Gulp',
+
+  /* ---------- 帯・ひとこと ---------- */
+  '{0}　出口まで {1}m': '{0}  Exit in {1}m',
+  'かんたん STAGE {#}': 'EASY STAGE {#}',
+  '残業{#}周目 STAGE {#}': 'LAP {#} STAGE {#}',
+  'ボスラッシュ {#}/{#}': 'BOSS RUSH {#}/{#}',
+  '部長 接近中': 'MANAGER INCOMING',
+  '「ちょっといいかな？」を回避せよ': 'Dodge the "Got a minute?"',
+  '中ボス': 'MID-BOSS',
+  'ラスト脂肪': 'LAST FAT',
+  '撃ったらすぐ食べないと燃え尽きる': 'Shoot it and eat fast, or you burn out',
+  'ドリンク確保': 'DRINK GET',
+  '右下の「無敵」で好きなときに使える': 'Use it any time with INVINCIBLE (bottom right)',
+  'Xキーで好きなときに使える': 'Press X to use it any time',
+  '残機 －1': 'LIFE -1',
+  'のこり {#}': '{#} left',
+  '脂肪切れ　のこり {#}': 'Out of fat  {#} left',
+  'もう後がない！': 'Last life!',
+  '脂肪切れ　もう後がない！': 'Out of fat  Last life!',
+  '復活！': 'REVIVED!',
+  'ドリンク携帯！': 'Drink in hand!',
+  'ガリッ……': 'Crunch……',
+  '判定↑ 倍率×{#}': 'Hitbox↑ Score×{#}',
+  '判定↓ 倍率×{#}': 'Hitbox↓ Score×{#}',
+  'ブルルンッ!': 'JIGGLE!',
+  '食べろ！': 'EAT!',
+  '再吸収！': 'REABSORBED!',
+  '脱ぎ捨て！': 'Jacket off!',
+  '粉砕{#}個 +{#}': 'Smashed {#} +{#}',
+  '無敵！': 'INVINCIBLE!',
+  '満杯 +{#}': 'Full +{#}',
+  'ドリンク確保！': 'Got a drink!',
+  '全回復!!': 'FULL REFILL!!',
+  '満腹…': 'Stuffed…',
+  '脂肪+{#}': 'Fat +{#}',
+  'ドーン!!': 'BOOM!!',
+  'バキィ!!': 'CRACK!!',
+  'ドガァッ!!': 'WHAM!!',
+  'ズドン!!': 'THUD!!',
+  '粉砕!!': 'SMASH!!',
+  '粉砕!': 'Smash!',
+  'シャッター粉砕!!': 'SHUTTER SMASHED!!',
+  '車ごと粉砕!!': 'SMASHED THE CAR!!',
+  'パリン!': 'Shatter!',
+  '参りました!!': 'I give up!!',
+  'お先に失礼します!': "I'll head out first!",
+  'お疲れさまでした!!': 'Good work today!!',
+  'おやすみなさい!': 'Good night!',
+  'カキン!': 'Clang!',
+  'ぐふっ': 'Oof',
+  '壁で反射して狙え！': 'Bounce it off the wall!',
+  '資料ガード!': 'Document guard!',
+  '通話中ガード!': 'On-the-phone guard!',
+  'ジョッキガード!': 'Beer-mug guard!',
+  'カルテガード!': 'Chart guard!',
+  '経営計画ガード!': 'Business-plan guard!',
+  'その調子！': 'Keep it up!',
+  '顔面直撃!!': 'RIGHT IN THE FACE!!',
+  '体当たり!!': 'BODY SLAM!!',
+  '無効！': 'No effect!',
+  '時間切れ…': 'Time up…',
+  '名刺交換！': 'Business cards!',
+  '採血！': 'Blood test!',
+  '好機！': 'Opening!',
+  '一気！一気！': 'Chug! Chug!',
+  'Z一気！Z一気！': 'Z chug! Z chug!',
+  'フラスコを割れ！': 'Break the flasks!',
+  'ドスン!!': 'STOMP!!',
+  '今は無防備！': "He's wide open!",
+  '出口間近！': 'Exit ahead!',
+  'Z注入！': 'Z injection!',
+  'おかわり！': 'Another round!',
+  'Z注入！回復+{#}': 'Z injection! Heal +{#}',
+  'おかわり！回復+{#}': 'Another round! Heal +{#}',
+  'むせた！好機！': 'He choked! Opening!',
+  '大きなスキ！': 'Wide open!',
+  '期限切れ…': 'Deadline passed…',
+
+  /* ---------- 一時停止・結果 ---------- */
+  '一時停止': 'Paused',
+  'いまのうちに深呼吸。<br>お腹は引っ込みません。': 'Take a deep breath.<br>Your belly stays put.',
+  '再開する': 'Resume',
+  'タイトルへ': 'To title',
+  '社会的に死亡': 'SOCIALLY DEAD',
+  '体脂肪率 0%': 'BODY FAT 0%',
+  'その場で復活': 'Revive here',
+  '脂肪3個・1回のプレイで1度だけ': '3 fat, once per run',
+  'このフロアから再挑戦': 'Retry this floor',
+  '1周目から再挑戦': 'Retry from lap 1',
+  '1体目から再挑戦': 'Retry from boss 1',
+  'もう一度ボスに挑む': 'Fight the boss again',
+  'かんたんモードでこのフロアから': 'Retry this floor in Easy Mode',
+  '敵と弾が少なめ・残機多め（残機3）': 'Fewer enemies & bullets (3 lives)',
+  'ドリンク付きで再挑戦': 'Retry with a drink',
+  '6秒無敵を1本': 'One 6-second invincibility',
+  '結果をコピー': 'Copy result',
+  'コピーしました': 'Copied',
+  '下の文字を選んでコピー': 'Select the text below to copy',
+  'Xでポスト': 'Post on X',
+  'スコア': 'Score',
+  '到達': 'Reached',
+  'ハイスコア': 'Hi-score',
+  '{#}　テスト・記録なし': '{#}  test, not recorded',
+  '{#}　つづきから・記録なし': '{#}  continued, not recorded',
+  '{#}　NEW RECORD!': '{#}  NEW RECORD!',
+  'STAGE {#}　ボス戦': 'STAGE {#}  Boss fight',
+  'STAGE {#}　出口まで残り {#}m': 'STAGE {#}  {#}m to the exit',
+  'STAGE {#}　{#}周目 出口まで残り {#}m': 'STAGE {#}  Lap {#}, {#}m to the exit',
+  'STAGE {#}　{#}周目 ボス戦': 'STAGE {#}  Lap {#}, boss fight',
+  'STAGE {#}　ボスラッシュ {#}/{#} ボス戦': 'STAGE {#}  Boss rush {#}/{#}',
+  'フロア突破': 'FLOOR CLEAR',
+  '次のフロアへ': 'Next floor',
+  'もう一度ボスラッシュ': 'Boss rush again',
+  'ドリンクを持って次へ': 'Next floor with a drink',
+  '好きなときに使える無敵を1本': 'One invincibility, use any time',
+  'ボスを選び直す': 'Pick another boss',
+  '{0}を<em>物理的に黙らせました</em>。<br>次は{1}。': 'You <em>physically silenced</em> the {0}.<br>Next: {1}.',
+  '帰ろうとしたら<em>また1面から</em>。<br>{0}周目は敵が増えて、点も伸びます。': 'You tried to go home and ended up <em>back at Stage 1</em>.<br>Lap {0} has more enemies, and more points.',
+  '残業 {#}周目 終了': 'OVERTIME LAP {#} DONE',
+  'STAGE {#} CLEAR': 'STAGE {#} CLEAR',
+  '残り脂肪ボーナス': 'Leftover fat bonus',
+  '飛ばした脂肪': 'Fat fired',
+  '{#}発': '{#} shots',
+  '現在時刻': 'Time now',
+  'ケーキまで': 'Until cake',
+  'あと{#}時間{#}分': '{#}h {#}m left',
+  'あと{#}時間': '{#}h left',
+  'あと{#}分': '{#}m left',
+  'もう遅刻': 'Already late',
+  'ボスモード STAGE {#}': 'BOSS MODE STAGE {#}',
+  '{0}を<em>{1}</em>で黙らせました。': 'You silenced the {0} in <em>{1}</em>.',
+  '<br>自己ベスト更新！': '<br>New personal best!',
+  '<br>最速は{0}。': '<br>Best: {0}.',
+  '{#}秒': '{#}s',
+  'ボスラッシュ': 'Boss Rush',
+  '{#}連戦 突破': '{#} BOSSES DOWN',
+  '{0}人を合計<em>{1}</em>で黙らせました。': 'You silenced {0} bosses in <em>{1}</em> total.',
+  '無事<br>帰宅。': 'Made it<br>home.',
+  '今日のお題 クリア': 'Daily Task cleared',
+  'タイムカード': 'TIME CARD',
+  '退勤打刻': 'Clock-out',
+  '帰宅': 'Home',
+  'ケーキ {#}:{#}': 'Cake {#}:{#}',
+  '間に合った': 'Made it',
+  '{#}時間{#}分遅れ': '{#}h {#}m late',
+  '{#}時間遅れ': '{#}h late',
+  '{#}分遅れ': '{#}m late',
+  '粉砕した障害': 'Obstacles smashed',
+  '{#}件': '{#}',
+  '食べた物': 'Food eaten',
+  '{#}個': '{#}',
+  '明日も退勤する': 'Clock out again tomorrow',
+  '全ステージ突破': 'cleared every stage',
+  '{0}で燃え尽き': 'burned out at {0}',
+  '{0}で残業確定': 'stuck in overtime at {0}',
+  '［ボスラッシュ］': ' [Boss Rush]',
+  '［ボスモード］': ' [Boss Mode]',
+  '［裏］': ' [Ura]',
+  '［かんたん］': ' [Easy]',
+  '［エンドレス{#}周目］': ' [Endless lap {#}]',
+  'メタボリック・バースト{0} {1}係長、{2} SCORE {3} #メタボリックバースト': 'Metabolic Burst{0}: Chief {1} {2}. SCORE {3} #MetabolicBurst',
+
+  /* ---------- パネル ---------- */
+  '閉じる': 'Close',
+  '{#}月{#}日': '{#}/{#}',
+  'ステージ': 'Stage',
+  'モード': 'Mode',
+  '裏モード': 'Ura Mode',
+  '通常': 'Normal',
+  '通常（本来は裏。通常モードを1回クリアすると裏になります）': 'Normal (really an Ura day; becomes Ura once you clear Normal Mode)',
+  '条件': 'Rule',
+  '今日の最高': "Today's best",
+  '敵の出かたは今日一日同じ。1ステージを突破すればクリア。': 'Enemies come the same way all day. Clear one stage to win.',
+  'お題に挑む': 'Take on the task',
+  '倒したボスと、脂肪満タンで何度でも戦えます。スコアはランキングに入りません。': 'Fight any boss you have beaten, with full fat, as often as you like. Scores do not go on the rankings.',
+  'ボスラッシュ　{#}連戦': 'Boss Rush  {#} in a row',
+  '脂肪は持ち越し　最速 {#}秒': 'Fat carries over  Best {#}s',
+  '脂肪は持ち越し　最速 ―': 'Fat carries over  Best ―',
+  '全てのボスを倒すと解放': 'Beat every boss to unlock',
+  'STAGE {#}のボスを倒すと解放': 'Beat the STAGE {#} boss to unlock',
+  'STAGE {#}のボス　最速 {#}秒': 'STAGE {#} boss  Best {#}s',
+  'STAGE {#}のボス　最速 ―': 'STAGE {#} boss  Best ―',
+  'ボスモード解放：{0}': 'Boss Mode unlocked: {0}',
+  'ボスラッシュ解放：ボスモードから{#}連戦': 'Boss Rush unlocked: {#} bosses in a row, from Boss Mode',
+  'まだ記録がありません': 'No records yet',
+  'この端末での上位10件です。': 'Top 10 on this device.',
+  '{#}周目 STAGE {#}': 'Lap {#} STAGE {#}',
+  'Play ゲームのランキングを見る': 'View Play Games leaderboards',
+  'Play ゲームの実績を見る': 'View Play Games achievements',
+  'Play ゲームにログインして記録を送る': 'Sign in to Play Games to send records',
+  'Play ゲームにログインできませんでした': 'Could not sign in to Play Games',
+  '{#} / {#} 解除': '{#} / {#} unlocked',
+  '着用中': 'Wearing',
+  'タップで着る': 'Tap to wear',
+  '着せ替えの見た目': 'Outfit preview',
+  'スーツ': 'Suits',
+  'ネクタイ': 'Ties',
+  '頭': 'Head',
+  '実績「{0}」で解放': 'Unlock: achievement "{0}"',
+  '実績解除': 'Achievement',
+  '着せ替え解放': 'New outfit',
+  '{0} ほか{1}件': '{0} and {1} more',
+
+  /* ---------- 設定・クレジット ---------- */
+  '音': 'Sound',
+  'BGMの音量': 'Music volume',
+  '効果音の音量': 'Sound effects volume',
+  '振動': 'Vibration',
+  '揺れ・フラッシュ': 'Shake & flashes',
+  '弱め': 'Reduced',
+  '標準': 'Normal',
+  'tips（初めて見る物の説明）': 'Tips (explain new things)',
+  'プライバシーポリシー': 'Privacy policy',
+  'クレジット': 'Credits',
+  '不具合を報告': 'Report a bug',
+  '広告のプライバシー設定': 'Ad privacy settings',
+  '言語': 'Language',
+  '企画・開発　CYCLE Games<br>絵・音楽・効果音は全てプログラムで作っています': 'Design & development: CYCLE Games<br>All art, music and sound effects are generated by code',
+  'フォント': 'Fonts',
+  '上記のフォントは SIL Open Font License 1.1 で提供されています': 'The fonts above are licensed under the SIL Open Font License 1.1',
+
+  /* ---------- 広告・通知 ---------- */
+  'スポンサー': 'SPONSOR',
+  'Web版は広告なしで受け取れます。': 'The web version gives you the reward without an ad.',
+  '閉じる（報酬なし）': 'Close (no reward)',
+  'プライバシー設定を開けませんでした。通信できる場所でもう一度お試しください': 'Could not open privacy settings. Please try again with a connection',
+  '通信できません。つながる場所でもう一度お試しください': 'No connection. Please try again when you are online',
+  '広告を準備できませんでした。少し時間をおいてお試しください': 'Could not load an ad. Please try again in a moment',
+  'いま流せる広告がありません。少し時間をおいてお試しください': 'No ads available right now. Please try again in a moment',
+  'tipsはタイトルの「tips集」でいつでも見られます': 'You can read tips any time from "Tips" on the title screen',
+  'ストーリー': 'Story',
+  'モーレツZ事件': 'The Moretsu Z Incident',
+  '？？？': '???',
+  '<span class="say"><b>娘</b>「パパおかえり！」</span>': '<span class="say"><b>Daughter</b> "Welcome home, Daddy!"</span>',
+  '{0}係長、体脂肪は<em>満タン</em>のまま帰宅。<br>今夜もビールがうまい。': 'Chief {0} made it home with a <em>full tank</em> of belly fat.<br>The beer tastes great tonight.',
+  '{0}係長、体脂肪は残り<em>{1}/6</em>。<br>ちょっと痩せた気がします。': 'Chief {0} made it home with <em>{1}/6</em> fat left.<br>He feels a little slimmer.',
+  'スキップ ▶▶': 'Skip ▶▶',
+  'わかった': 'Got it',
+  '今後tipsを表示しない': "Don't show tips again",
+});
+
+// 日本語のまま出す文：背景の看板・机の名札・弾や判子の文字（絵の一部）
+for (const s of [
+  'Z研究所 被験者募集', 'おでん', 'やきとり', 'ノー残業デー', 'ハイボール', 'ビール', 'モーレツZ 近日発売', '中央', '中期経営計画', '乾杯',
+  '人事部', '伊藤', '会議室A', '会議室B', '佐藤', '倉庫', '危', '否', '喫煙所', '報連相', '大衆酒場', '安全第一', '居酒屋', '工事中',
+  '役員室', '忘れ物', '本社前', '極秘', '消火器', '焼鳥 1本90円', '燃えるゴミ', '生ビール 190円', '田中', '着信', '研究所', '研究所前',
+  '稟議書', '節電中', '終点', '終電 0:12', '経理部', '給湯室', '至急', '跳', '車', '通話中', '鈴木', '防火シャッター', '飲み放題',
+  '駆け込み乗車はおやめください', '高橋', 'メタボリック', 'バースト', 'クソゲー', '言語 / Language', 'カルテ', '評価', '決裁', '定時', '却下', '出口', '家',
+  ...'社長之印至急対応終電厳禁臨床試験全社命令',
+]) I18N_KEEP.add(s);
+</script>
+<script>
 // メタボリック・バースト：ゲーム状態・体型・描画ヘルパ
 'use strict';
 /* ================= ゲーム状態 ================= */
@@ -1355,6 +1855,7 @@ function ell(c, x, y, rx, ry, rot) { c.beginPath(); c.ellipse(x, y, Math.max(0.0
 function circ(c, x, y, r) { c.beginPath(); c.arc(x, y, Math.max(0.01, r), 0, TAU); }
 function line(c, x1, y1, x2, y2) { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
 function txt(c, s, x, y, font, fill, align, stroke, lw) {
+  s = tr(s); // 英語表示のときだけ訳す（js/i18n.js）
   c.font = font; c.textAlign = align || 'center'; c.textBaseline = 'middle';
   if (stroke) { c.lineJoin = 'round'; c.lineWidth = lw || 3; c.strokeStyle = stroke; c.strokeText(s, x, y); }
   c.fillStyle = fill; c.fillText(s, x, y);
@@ -4063,7 +4564,7 @@ function nextTutStep() {
   T.step++; T.t = 0; T.wait = 0; T.x0 = P.x; T.y0 = P.y; T.shots0 = G.stats.shots; T.items0 = G.stats.items;
   if (T.step >= TUT.length) { endTut(true); return; }
   const st = TUT[T.step]; if (st.setup) st.setup();
-  $('tutText').innerHTML = st.text(); $('tutStep').textContent = (T.step + 1) + ' / ' + TUT.length;
+  $('tutText').innerHTML = tr(st.text()); $('tutStep').textContent = (T.step + 1) + ' / ' + TUT.length;
   $('tutOk').hidden = true;
   if (st.info) tutWait(T, TUT_WAIT.info); else $('tutNext').hidden = true;
   $('tutCard').classList.remove('pop'); void $('tutCard').offsetWidth; $('tutCard').classList.add('pop');
@@ -4280,7 +4781,7 @@ function stampYFor(el) {
 }
 function showOver() {
   const d = G.death, st = STAGES[G.stage];
-  ovCause.innerHTML = '<span style="color:var(--hanko);font-family:var(--f-display);font-weight:400">' + (d.type === 'starve' ? '体脂肪率 0%' : '社会的に死亡') + '</span><br>' + (d.type === 'starve' ? CAUSE.starve : (CAUSE[d.by] || CAUSE.pile));
+  ovCause.innerHTML = '<span style="color:var(--hanko);font-family:var(--f-display);font-weight:400">' + tr(d.type === 'starve' ? '体脂肪率 0%' : '社会的に死亡') + '</span><br>' + tr(d.type === 'starve' ? CAUSE.starve : (CAUSE[d.by] || CAUSE.pile));
   const remain = (G.endless ? `${G.loop + 1}周目 ` : G.rush ? `ボスラッシュ ${G.rush.i + 1}/${STAGES.length} ` : '') + (G.bossPhase ? 'ボス戦' : `出口まで残り ${Math.max(0, Math.ceil((st.len - G.dist) / 10))}m`);
   setAdButtons();
   ovStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>到達</dt><dd>${st.name}　${remain}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd>`;
@@ -4321,7 +4822,7 @@ function stageClear() {
       $('endKicker').textContent = 'ALL CLEAR'; $('endBig').innerHTML = '無事<br>帰宅。';
       endClock.className = G.daily ? 'clock' : 'tcard'; // お題はひとことだけ。ほかはタイムカード
       if (G.daily) endClock.textContent = '今日のお題 クリア'; else endClock.innerHTML = timecardHTML();
-      endMsg.innerHTML = (story ? '<span class="say"><b>娘</b>「パパおかえり！」</span>' : '') + HERO.family + '係長、' + (ammo() === 6 ? '体脂肪は<em>満タン</em>のまま帰宅。<br>今夜もビールがうまい。' : `体脂肪は残り<em>${ammo()}/6</em>。<br>ちょっと痩せた気がします。`);
+      endMsg.innerHTML = (story ? tr('<span class="say"><b>娘</b>「パパおかえり！」</span>') : '') + t(ammo() === 6 ? '{0}係長、体脂肪は<em>満タン</em>のまま帰宅。<br>今夜もビールがうまい。' : '{0}係長、体脂肪は残り<em>{1}/6</em>。<br>ちょっと痩せた気がします。', tr(HERO.family), ammo());
       endStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd><dt>粉砕した障害</dt><dd>${G.stats.crushed}件</dd><dt>食べた物</dt><dd>${G.stats.items}個</dd>`;
       resetShare(); setAdButtons(); ovEnd.hidden = false; againBtn.focus({ preventScroll: true });
       if (!G.daily) Review.maybeAsk('allclear');
@@ -4330,7 +4831,7 @@ function stageClear() {
   } else {
     setTimeout(() => {
       clearKicker.textContent = looped ? `残業 ${G.loop}周目 終了` : st.name + ' CLEAR';
-      clearMsg.innerHTML = looped ? `帰ろうとしたら<em>また1面から</em>。<br>${G.loop + 1}周目は敵が増えて、点も伸びます。` : `${BOSSES[st.boss].name}を<em>物理的に黙らせました</em>。<br>次は${STAGES[nextStageIdx()].place}。` + storyAfterHTML(st.boss);
+      clearMsg.innerHTML = looped ? t('帰ろうとしたら<em>また1面から</em>。<br>{0}周目は敵が増えて、点も伸びます。', G.loop + 1) : t('{0}を<em>物理的に黙らせました</em>。<br>次は{1}。', tr(BOSSES[st.boss].name), tr(STAGES[nextStageIdx()].place)) + storyAfterHTML(st.boss);
       clearStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd>` + clockStatsHTML();
       setAdButtons(); ovClear.hidden = false; nextBtn.focus({ preventScroll: true });
       if (G.stage >= 1) Review.maybeAsk('stage' + (G.stage + 1)); // 1人目のボスはまだ早い
@@ -4341,7 +4842,7 @@ function bossModeClear(st, shown) {
   const sec = G.play - (G.bossStart || 0), best = recordBossTime(st.boss, sec);
   setTimeout(() => {
     clearKicker.textContent = 'ボスモード ' + st.name;
-    clearMsg.innerHTML = `${BOSSES[st.boss].name}を<em>${fmtSec(sec)}</em>で黙らせました。` + (best ? '<br>自己ベスト更新！' : `<br>最速は${fmtSec(META.bossBest[st.boss])}。`);
+    clearMsg.innerHTML = t('{0}を<em>{1}</em>で黙らせました。', tr(BOSSES[st.boss].name), fmtSec(sec)) + (best ? tr('<br>自己ベスト更新！') : t('<br>最速は{0}。', fmtSec(META.bossBest[st.boss])));
     clearStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd>`;
     setAdButtons(); ovClear.hidden = false; nextBtn.focus({ preventScroll: true });
   }, 700);
@@ -4353,8 +4854,8 @@ function rushClear(shown) {
   const sec = R.splits.reduce((a, b) => a + b, 0), prev = META.bossBest.rush, best = recordBossTime('rush', sec);
   setTimeout(() => {
     clearKicker.textContent = 'ボスラッシュ'; $('clearBig').textContent = `${STAGES.length}連戦 突破`;
-    clearMsg.innerHTML = `${STAGES.length}人を合計<em>${fmtSec(sec)}</em>で黙らせました。` + (best ? (prev ? '<br>自己ベスト更新！' : '') : `<br>最速は${fmtSec(prev)}。`);
-    clearStats.innerHTML = STAGES.map((st, i) => `<dt>${esc(BOSSES[st.boss].name)}</dt><dd>${fmtSec(R.splits[i])}</dd>`).join('') + `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd>`;
+    clearMsg.innerHTML = t('{0}人を合計<em>{1}</em>で黙らせました。', STAGES.length, fmtSec(sec)) + (best ? (prev ? tr('<br>自己ベスト更新！') : '') : t('<br>最速は{0}。', fmtSec(prev)));
+    clearStats.innerHTML = STAGES.map((st, i) => `<dt>${esc(tr(BOSSES[st.boss].name))}</dt><dd>${fmtSec(R.splits[i])}</dd>`).join('') + `<dt>スコア</dt><dd>${fmt(G.score)}</dd><dt>残り脂肪ボーナス</dt><dd>+${fmt(shown)}</dd>`;
     setAdButtons(); ovClear.hidden = false; nextBtn.focus({ preventScroll: true });
     Review.maybeAsk('rush');
   }, 700);
@@ -4393,8 +4894,8 @@ function startStage(i, freshAmmo) {
   G.mode = 'play';
   if (!G.test) Notify.played(); // 今日はもう遊んだので、今日のお知らせは出さない
   const st = STAGES[i];
-  if (G.rush) banner(`ボスラッシュ ${G.rush.i + 1}/${STAGES.length}`, BOSSES[st.boss].name + '　' + BOSSES[st.boss].who, '#fff', true);
-  else banner((G.ura ? '裏 ' : G.easy ? EASY.name + ' ' : G.endless ? `残業${G.loop + 1}周目 ` : '') + st.name, st.place + '　出口まで ' + Math.round(st.len / 10) + 'm', G.ura ? COL.hanko : '#fff', true);
+  if (G.rush) banner(`ボスラッシュ ${G.rush.i + 1}/${STAGES.length}`, tr(BOSSES[st.boss].name) + '　' + tr(BOSSES[st.boss].who), '#fff', true);
+  else banner((G.ura ? '裏 ' : G.easy ? EASY.name + ' ' : G.endless ? `残業${G.loop + 1}周目 ` : '') + st.name, t('{0}　出口まで {1}m', tr(st.place), Math.round(st.len / 10)), G.ura ? COL.hanko : '#fff', true);
   for (const o of [ovTitle, ovOver, ovClear, ovEnd, ovPause]) o.hidden = true;
   pauseBtn.hidden = false;
   musicStart(); sfx('gogo');
@@ -4472,7 +4973,8 @@ function togglePause() {
 }
 function updateBestLine() {
   const b = G.best;
-  bestLine.textContent = !b ? 'まだ誰も無事に帰れていません' : `ハイスコア ${fmt(b.hi || 0)}` + (b.easyHi ? `／${EASY.name} ${fmt(b.easyHi)}` : '') + (b.uraHi ? `／裏 ${fmt(b.uraHi)}` : '') + (b.endHi ? `／残業 ${fmt(b.endHi)}` : '') + (b.clears ? `／帰宅 ${b.clears}回` : '');
+  // 項目ごとに訳してからつなぐ（あるものだけ並ぶので、つないだ形をキーにすると組み合わせが増える）
+  bestLine.textContent = !b ? tr('まだ誰も無事に帰れていません') : [`ハイスコア ${fmt(b.hi || 0)}`, b.easyHi && `${EASY.name} ${fmt(b.easyHi)}`, b.uraHi && `裏 ${fmt(b.uraHi)}`, b.endHi && `残業 ${fmt(b.endHi)}`, b.clears && `帰宅 ${b.clears}回`].filter(Boolean).map(tr).join(LANG === 'en' ? ' / ' : '／');
   // 1面までしか行っていなければ「つづきから」は出さない
   const cs = contStage();
   $('contRow').hidden = cs < 1;
@@ -4598,7 +5100,7 @@ function drawAimGuide(c) {
 const hudB = { cv: document.createElement('canvas'), key: '' };
 // 業務命令中の上の表示：件名を書いた紙の札と、決裁期限の赤い帯。点数は却下したときの明細でだけ出す
 function drawRingi(c, od, bw) {
-  const K = !od && G.kyakka, label = '件名 ' + (od ? od.name : K.name);
+  const K = !od && G.kyakka, label = t('件名 {0}', tr(od ? od.name : K.name));
   let size = 11; c.font = F.zk(size, 700);
   while (size > 8 && c.measureText(label).width > bw + 8) { size--; c.font = F.zk(size, 700); }
   const w = Math.min(bw + 14, c.measureText(label).width + 14);
@@ -4842,7 +5344,7 @@ function drawWarning(c) {
   }
   c.fillStyle = 'rgba(16,20,23,.85)'; c.fillRect(0, 272, W, 110);
   if (on) txt(c, 'WARNING', W / 2, 314, F.dg(46), '#f4d64e', 'center', COL.ink, 6);
-  txt(c, 'ボス接近：' + b.def.name, W / 2, 358, F.zk(15), '#fff');
+  txt(c, t('ボス接近：{0}', tr(b.def.name)), W / 2, 358, F.zk(15), '#fff');
 }
 function drawBanner(c) {
   const b = G.banner; if (!b) return;
@@ -5067,7 +5569,7 @@ const TIE = () => TIES[META.cos.tie] || TIES.red;
 const HEAD = () => (HEADS[META.cos.head] ? META.cos.head : 'none');
 // META.unlocked は以前の広告で解放した物（広告での解放はやめたが、持っている物はそのまま使える）と、季節イベントの景品
 function owned(list, id) { const d = list[id]; return (!d.cond && !d.ev) || !!META.unlocked[id] || !!META.ach[d.cond]; }
-function condText(d) { return d.ev ? seasonCondText(d) : '実績「' + ACHS.find(a => a.id === d.cond).name + '」で解放'; }
+function condText(d) { return d.ev ? seasonCondText(d) : t('実績「{0}」で解放', tr(ACHS.find(a => a.id === d.cond).name)); }
 
 /* ================= 今日のお題（日付で決まる条件と乱数） ================= */
 const MODS = [
@@ -5114,7 +5616,7 @@ const bossUnlocked = key => !!META.bosses[key];
 function unlockBoss(key) {
   if (G.test || bossUnlocked(key)) return;
   META.bosses[key] = Date.now(); saveMeta();
-  toast('ボスモード解放：' + BOSSES[key].name);
+  toast(t('ボスモード解放：{0}', tr(BOSSES[key].name)));
   if (rushUnlocked()) toast(`ボスラッシュ解放：ボスモードから${STAGES.length}連戦`);
 }
 function startBossMode(key) {
@@ -5183,15 +5685,15 @@ $('panelClose').addEventListener('click', closePanel);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 function showHow() {
-  openPanel('遊び方', `<p class="hero">主人公：${heroHTML()}<br>今日こそ定時の18:00に退勤したい。</p>`);
+  openPanel('遊び方', `<p class="hero">${t('主人公：{0}', heroHTML())}<br>${tr('今日こそ定時の18:00に退勤したい。')}</p>`);
   panelBody.appendChild($('howTpl').content.cloneNode(true));
 }
 function showDaily() {
   const info = dailyInfo(), best = META.daily[info.key];
   openPanel('今日のお題', `
     <p class="pdate">${info.label}</p>
-    <dl class="stats"><dt>ステージ</dt><dd>${STAGES[info.stage].name}　${STAGES[info.stage].place}</dd>
-    <dt>モード</dt><dd>${info.ura ? '裏モード' : info.uraHeld ? '通常（本来は裏。通常モードを1回クリアすると裏になります）' : '通常'}</dd><dt>条件</dt><dd>${info.mod.name}</dd>
+    <dl class="stats"><dt>ステージ</dt><dd>${STAGES[info.stage].name}　${tr(STAGES[info.stage].place)}</dd>
+    <dt>モード</dt><dd>${info.ura ? '裏モード' : info.uraHeld ? '通常（本来は裏。通常モードを1回クリアすると裏になります）' : '通常'}</dd><dt>条件</dt><dd>${tr(info.mod.name)}</dd>
     <dt>今日の最高</dt><dd>${best ? fmt(best) : '―'}</dd></dl>
     <p class="pnote">敵の出かたは今日一日同じ。1ステージを突破すればクリア。</p>
     <button id="dailyGo" class="btn" type="button">お題に挑む</button>`);
@@ -5245,7 +5747,7 @@ function drawCostumePreview() {
   const c = pc.getContext('2d'), sx = P.x, sy = P.y;
   c.clearRect(0, 0, 240, 240);
   P.x = 120; P.y = 150; drawPlayer(c, {}); P.x = sx; P.y = sy;
-  if (!ovPanel.hidden && panelTitle.textContent === '着せ替え') requestAnimationFrame(drawCostumePreview);
+  if (!ovPanel.hidden && panelTitle.textContent === tr('着せ替え')) requestAnimationFrame(drawCostumePreview);
 }
 function showSettings() {
   openPanel('設定', `
@@ -5257,6 +5759,7 @@ function showSettings() {
     <label class="set"><span>tips（初めて見る物の説明）</span><button id="setTips" class="tbtn" type="button" aria-pressed="${SETTINGS.tips}">${SETTINGS.tips ? 'ON' : 'OFF'}</button></label>
     ${Notify.available() ? `<label class="set"><span>毎日のお知らせ</span><button id="setNotif" class="tbtn" type="button" aria-pressed="${SETTINGS.notif === true}">${SETTINGS.notif === true ? 'ON' : 'OFF'}</button></label>
     <label class="set" for="setNotifHour"><span>お知らせの時刻</span><select id="setNotifHour">${NOTIFY_HOURS.map(h => `<option value="${h}"${h === Notify.hour() ? ' selected' : ''}>${h}:00</option>`).join('')}</select></label>` : ''}
+    ${SHOW_TEST || LANG_AUTO ? `<label class="set"><span>言語 / Language</span><button id="setLang" class="tbtn" type="button">${LANG === 'en' ? 'English' : '日本語'}</button></label>` : ''}
     <label class="set"><span>チュートリアル</span><button id="setTut" class="tbtn" type="button" aria-pressed="${!tutDone()}">${tutDone() ? 'OFF' : 'ON'}</button></label>
     <p class="pnote"><a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>　<button id="setCredits" class="linkbtn" type="button">クレジット</button>　<button id="setReport" class="linkbtn" type="button">不具合を報告</button>${Ads.privacy ? '　<button id="setAdPrivacy" class="linkbtn" type="button">広告のプライバシー設定</button>' : ''}</p>`);
   const tog = (id, key) => $(id).addEventListener('click', () => { SETTINGS[key] = !SETTINGS[key]; saveSettings(); $(id).setAttribute('aria-pressed', SETTINGS[key]); $(id).textContent = SETTINGS[key] ? 'ON' : 'OFF'; if (key === 'sound' && SETTINGS.sound) titleMusicKick(); if (key === 'vib') Haptic.tap('medium'); });
@@ -5265,6 +5768,8 @@ function showSettings() {
   $('setSe').addEventListener('input', e => { SETTINGS.se = +e.target.value; saveSettings(); });
   $('setSe').addEventListener('change', () => sfx('pick'));
   $('setCredits').addEventListener('click', showCredits);
+  // 言語は読み込み直して切り替える（画面を全部作り直すより確実）。?lang= が付いていたら外す
+  $('setLang')?.addEventListener('click', () => { SETTINGS.lang = LANG === 'en' ? 'ja' : 'en'; saveSettings(); location.href = location.href.split('?')[0]; });
   $('setCalm').addEventListener('click', () => { SETTINGS.calm = !SETTINGS.calm; saveSettings(); $('setCalm').setAttribute('aria-pressed', SETTINGS.calm); $('setCalm').textContent = SETTINGS.calm ? '弱め' : '標準'; });
   $('setAdPrivacy')?.addEventListener('click', () => Ads.showPrivacy());
   $('setNotif')?.addEventListener('click', async e => {
@@ -5393,7 +5898,8 @@ let toastQ = [], toastOn = false;
 let achQ = [];
 function toast(msg) { toastQ.push(msg); if (!toastOn) nextToast(); }
 function joinNames(label, names) {
-  return label + '：' + (names.length <= 2 ? names.join('・') : `${names[0]} ほか${names.length - 1}件`);
+  names = names.map(tr);
+  return tr(label) + (LANG === 'en' ? ': ' : '：') + (names.length <= 2 ? names.join(LANG === 'en' ? ', ' : '・') : t('{0} ほか{1}件', names[0], names.length - 1));
 }
 function flushAch() {
   const achs = achQ.filter(x => x.ach), coss = achQ.filter(x => x.cos);
@@ -6098,13 +6604,14 @@ function titleMusicKick() { if (G.mode === 'title' && AU.on && $('ovAd').hidden)
 document.addEventListener('pointerdown', titleMusicKick);
 document.addEventListener('keydown', titleMusicKick);
 // 主人公の名乗り（タイトル画面）
-const heroHTML = () => `${HERO.post}　<ruby>${HERO.name}<rt>${HERO.kana}</rt></ruby>（98kg）`;
+const heroHTML = () => LANG === 'en' ? `${tr(HERO.post)} ${tr(HERO.name)} (98kg)` : `${HERO.post}　<ruby>${HERO.name}<rt>${HERO.kana}</rt></ruby>（98kg）`;
 $('heroLine').innerHTML = heroHTML();
 // 結果をコピー（クリップボードが使えない環境では文字を表示して選択させる）
 function shareText() {
   const st = STAGES[G.stage], cleared = !ovEnd.hidden;
-  const where = cleared ? '全ステージ突破' : (G.death && G.death.type === 'starve' ? st.name + 'で燃え尽き' : st.name + 'で残業確定');
-  return `メタボリック・バースト${G.rush ? '［ボスラッシュ］' : G.bossMode ? '［ボスモード］' : G.ura ? '［裏］' : G.easy ? `［${EASY.name}］` : G.endless ? `［エンドレス${G.loop + 1}周目］` : ''} ${HERO.family}係長、${where} SCORE ${fmt(G.score)} #メタボリックバースト`;
+  const where = cleared ? tr('全ステージ突破') : t(G.death && G.death.type === 'starve' ? '{0}で燃え尽き' : '{0}で残業確定', st.name);
+  const tag = tr(G.rush ? '［ボスラッシュ］' : G.bossMode ? '［ボスモード］' : G.ura ? '［裏］' : G.easy ? `［${EASY.name}］` : G.endless ? `［エンドレス${G.loop + 1}周目］` : '');
+  return t('メタボリック・バースト{0} {1}係長、{2} SCORE {3} #メタボリックバースト', tag, tr(HERO.family), where, fmt(G.score));
 }
 for (const [btnId, outId] of [['shareOver', 'shareOverText'], ['shareEnd', 'shareEndText']]) {
   const btn = $(btnId), out = $(outId);
@@ -6122,7 +6629,7 @@ function resetShare() { for (const [b, o] of [['shareOver', 'shareOverText'], ['
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.mode === 'play') togglePause(); });
 
 function boot() {
-  resize(); toTitle();
+  startLocalize(); resize(); toTitle();
   // アプリ版：保存データの復元・広告・戻るボタン・ストアのサインイン
   Store.restore(['best', 'meta', 'settings', 'tut', 'review']).then(ch => { if (ch) location.reload(); });
   Ads.init(); initAppEvents(); GameServices.init(); Notify.init();
