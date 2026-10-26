@@ -1251,6 +1251,7 @@ function tr(s) {
     const nums = s.match(NUM_RE), k = nums && EN[s.replace(NUM_RE, '{#}')];
     if (k !== undefined && k !== null && nums) { let i = 0; r = k.replace(/\{#\}/g, () => nums[i++] ?? ''); }
   }
+  if (r === undefined) { const m = s.match(/^【(裏・)?(.+?)】(.+)$/); if (m) { const tag = EN['【' + m[2] + '】']; if (tag === undefined) I18N_MISS.add('【' + m[2] + '】'); r = `[${m[1] ? tr('裏') + ' ' : ''}${tag ?? m[2]}] ${tr(m[3])}`; } } // 業務命令の件名【分類】名前（分類は弾の字と同じ字があるので別のキー）
   if (r === undefined || r === null) { r = s; if (!I18N_KEEP.has(s)) I18N_MISS.add(s); }
   if (trCache.size > 3000) trCache.clear(); // 無敵の残り秒数などで数字違いが増え続けないように
   trCache.set(s, r);
@@ -1258,6 +1259,8 @@ function tr(s) {
 }
 // 名前入りの文：t('{0}でこのフロアから', name)。{0} などは訳したあとに入れる
 const t = (key, ...args) => tr(key).replace(/\{(\d)\}/g, (m, i) => args[i] ?? '');
+// セリフのかぎかっこ：英語は "…"
+const q = s => LANG === 'en' ? '"' + tr(s) + '"' : '「' + s + '」';
 
 // 画面の文字を訳す。<b> や <br> を含む塊は、塊ごとのキー（<wbr> と空白の違いは無視）を先に探す
 const htmlKey = h => h.replace(/<wbr>/g, '').replace(/[ \t\r\n]+/g, ' ').trim(); // 全角の空白は残す
@@ -1710,6 +1713,129 @@ Object.assign(EN, {
   '今後tipsを表示しない': "Don't show tips again",
 });
 
+// ストーリー・業務命令・やられた理由・ボスと中ボスのセリフ
+Object.assign(EN, {
+  /* ---------- プロローグ ---------- */
+  '定時まで、あと9時間': 'Nine hours until quitting time',
+  'これは、ある係長が<b>定時で帰ろうとした</b>だけの話である。': 'This is the story of a section chief who <b>just tried to leave on time</b>.',
+  '今朝の健康診断。社内でいちばん重い<b>98kg</b>の重田係長だけが、別室で「特別な栄養注射」を打たれた。': 'This morning\'s health check. Chief Shigeta, at <b>98kg</b> the heaviest man in the company, was taken to a separate room for a "special nutrition shot."',
+  '中身は研究所の試作薬<b>モーレツZ</b>の原液。体の脂肪を<b>働く力</b>に変えて、朝まで働き続ける社員を作る薬だ。脂肪が多い人にしか効かないので、選ばれたのは重田だけだった。': 'It was pure <b>Moretsu Z</b>, the lab\'s prototype drug. It turns body fat into <b>work power</b>, making employees who work until dawn. It only works on people with lots of fat, so Shigeta was the only one chosen.',
+  '18:00。今日は娘の誕生日で、ケーキは20時。重田は入社20年目で初めて、定時に退勤を打刻した。': '18:00. It\'s his daughter\'s birthday, and the cake is at 20:00. For the first time in 20 years at the company, Shigeta clocked out on time.',
+  '人事部長に肩をつかまれ、力んだ瞬間。お腹の脂肪が<b>弾になって飛び出した</b>。Zの副作用で、働く力が<b>脂肪ごと体の外へ</b>出てしまう体になっていたのだ。': 'The HR manager grabbed his shoulder. He tensed up, and his belly fat <b>shot out like bullets</b>. A side effect of Z: his work power now bursts <b>out of his body, fat and all</b>.',
+  '社長（全館放送）': 'CEO (PA system)',
+  '重田くん。君の腹は実験の失敗の証拠……つまり<b>わが社の機密</b>だ。全社員と取引先に告ぐ。<b>【緊急】重田係長を帰すな</b>': 'Shigeta. Your belly is proof of a failed experiment... in other words, <b>a company secret</b>. Attention all staff and clients. <b>[URGENT] Do NOT let Chief Shigeta go home</b>',
+  '撃てば痩せて身軽になる。でも出し切れば<b>燃え尽きる</b>。食べて脂肪を足しながら、20時までに家へ帰れ。': 'Shooting makes you thinner and lighter. But run out and you <b>burn out</b>. Eat to refill your fat, and get home by 20:00.',
+  '健康診断': 'Checkup',
+  '別室': 'Room B',
+  '試作原液': 'PROTOTYPE',
+  'ボンッ': 'BOOM',
+  '退勤': 'OFF',
+
+  /* ---------- ボスを倒したあと ---------- */
+  '社長': 'CEO',
+  '娘': 'Daughter',
+  'ぐぬぬ……だが研究所の<b>薬師寺</b>が、たった1人の成功例を逃がすはずがない……': 'Grr... But <b>Yakushiji</b> at the lab will never let his one and only success get away...',
+  '無理田': 'Murita',
+  '社長から「今夜は重田を好きに使っていい」と言われてたんですがね……。その腹、うちで<b>買い取れません</b>？': 'The CEO told me "use Shigeta however you like tonight"... Say, could we <b>buy that belly</b> off you?',
+  '専務': 'Director',
+  'わしも若い頃、Zを打たれた口でな。酒で流して力をなくした……。終電に乗れ。だが地下鉄は<b>研究所の縄張り</b>だ': 'I got a Z shot too, back in the day. Washed it out with booze and lost the power... Catch the last train. But the subway is <b>the lab\'s turf</b>',
+  'わしは創業以来、一度も定時に帰ったことがない。……本当は、<b>帰りたかった</b>': 'Since I founded this company, I have never once gone home on time. ...The truth is, <b>I wanted to</b>',
+  '薬師寺': 'Yakushiji',
+  'Zは「働きたい」ではなく<b>「帰りたい」</b>に反応していたのか……。止められん。だが社長が最後の手を打った。<b>君の家の前</b>でな': 'So Z wasn\'t reacting to "I want to work" but to <b>"I want to go home"</b>... I can\'t stop you. But the CEO has made his last move. <b>Right outside your house</b>',
+  'そして、家に帰った。（続きは「ここまで通して見る」で）': 'And then he went home. (See the rest with "Watch it all")',
+
+  /* ---------- エンディング ---------- */
+  '自宅前': 'HOME',
+  'お先に失礼します': 'Leaving on time!',
+  '……帰りましょう、社長。<b>定時</b>は、誰にでもあるんです。': '...Let\'s go home, sir. <b>Quitting time</b> is for everyone.',
+  '{0}。玄関のドアを開けると――': '{0}. He opens the front door...',
+  'パパおかえり！': 'Welcome home, Daddy! ',
+  'ケーキ、まだ火つけてないよ！<b>間に合ったね！</b>': 'We haven\'t lit the candles yet! <b>You made it!</b>',
+  '<b>おそーい！</b>……でも、おかえり！': '<b>You\'re late!</b> ...But welcome home!',
+  '<br>パパ、今日もおなか<b>ぽよぽよ</b>だね！': '<br>Daddy, your tummy is <b>still squishy</b>!',
+  '<br>……パパ、なんか<b>痩せた</b>？': '<br>...Daddy, did you <b>get thinner</b>?',
+  '翌朝。会社の自販機に、新商品が並んでいた。<br>「<b>モーレツZ2</b>　定時に帰れる力を、あなたに。」<br><b>― 完 ―</b>': 'The next morning, a new product appeared in the office vending machine.<br>"<b>Moretsu Z2</b>: The power to leave on time."<br><b>- THE END -</b>',
+  'モーレツZ2': 'Moretsu Z2',
+  '新発売': 'NEW!',
+
+  /* ---------- 紙芝居・あらすじ ---------- */
+  '退勤開始 ▶': 'Clock out ▶',
+  '帰宅 ▶': 'Go home ▶',
+  '閉じる ▶': 'Close ▶',
+  'あらすじ': 'Story So Far',
+  '▶ プロローグを見る': '▶ Watch the prologue',
+  '▶ ここまで通して見る': '▶ Watch it all',
+  'モーレツZ事件　見た場面はいつでも見返せます': 'The Moretsu Z Incident: rewatch any scene you have seen',
+  '「退勤を打刻」で始まります': 'Starts when you press "CLOCK OUT"',
+  'STAGE {#} ？？？': 'STAGE {#} ???',
+  '通常モードでボスを倒すと読めます': 'Beat this boss in Normal Mode to read',
+
+  /* ---------- 業務命令（ボスの必殺技）：【分類】名前・セリフ ---------- */
+  '裏': 'URA',
+  '【決裁】': 'APPROVAL', '千本ハンコ曼荼羅': 'Mandala of a Thousand Stamps', '承認するまで帰さんぞ': 'Nobody leaves until it\'s approved',
+  '【朝礼】': 'ASSEMBLY', '社訓唱和・全員起立！': 'All Rise for the Company Creed!', '声が小さい！もう一回！': 'I can\'t hear you! Again!',
+  '【仕様】': 'SPEC', '納品前夜の全面変更': 'Total Rewrite the Night Before Delivery', 'やっぱり最初の案で': 'Actually, let\'s go with the first draft',
+  '【着信】': 'CALL', '鳴りやまない着信地獄': 'Endless Ringing Phone Hell', '折り返しお電話ください': 'Please call me back',
+  '【乾杯】': 'CHEERS', 'とりあえず生、無限': 'Draft Beers, Forever', 'まだ一杯目だろ？': 'That\'s only your first, right?',
+  '【梯子】': 'BAR HOP', 'はしご酒・壁ドン返し': 'Bar Hop Wall Bounce', '次の店いくぞ！': 'On to the next bar!',
+  '【千鳥】': 'STAGGER', '千鳥足ロンド': 'Drunken Rondo', 'まっすぐ歩けてるって…': 'I\'m walkin\' straight, I tell ya...',
+  '【臨床】': 'TRIAL', '二重盲検カプセル': 'Double-Blind Capsules', 'どれが本物か、当ててごらん': 'Guess which one is real',
+  '【回収】': 'RETRIEVE', '被験者回収ネット': 'Test Subject Capture Net', '君は大事なサンプルだ': 'You are a precious sample',
+  '【増資】': 'CAPITAL', 'モーレツZ 五十本一気': 'Chugging Fifty Moretsu Z', '飲めば飲むほど働けるぞ！': 'The more you drink, the more you work!',
+  '【全社】': 'COMPANY', '全社員 総動員令': 'All-Staff Mobilization Order', '帰る者は全員クビだ！': 'Anyone who goes home is fired!',
+  '【定時】': 'CLOCK', '定時など存在しない': 'There Is No Quitting Time', '時計の針を止めろ！': 'Stop the clock!',
+
+  /* ---------- ボスの登場・倒した瞬間 ---------- */
+  '終電を許さぬ 飲み屋街の主': 'Lord of the Bars, Foe of the Last Train',
+  '創業以来 定時退社ゼロの男': 'Zero On-Time Departures Since Founding',
+  'モーレツZを 生み出した男': 'The Man Who Created Moretsu Z',
+  '定時を 許さぬ 最後の壁': 'The Final Wall Against Quitting Time',
+  '納期前日に 仕様を変える者': 'Changes the Spec the Day Before Deadline',
+  'ぐわあぁぁ！！': 'GWAAAHH!!',
+  '…持ち帰って検討しますぅ！': '...We\'ll take it back and review!',
+  'ヒック…もう飲めましぇん…': '*hic* ...Can\'t drink no more...',
+  'データは…取れた…！': 'At least... I got the data...!',
+  'わしも…帰りたかった…': 'I... wanted to go home too...',
+
+  /* ---------- 中ボスのセリフ ---------- */
+  '評価面談しようか？': 'Time for your review?',
+  '例の件、今から詰めよう': 'Let\'s settle that thing now',
+  'もう一杯だけ！': 'Just one more!',
+  '評価面談の続きだ！': 'Your review isn\'t over!',
+  '採血させてください': 'May I draw some blood?',
+  'ちょっといいかな？': 'Got a minute?',
+
+  /* ---------- やられた理由（ゲームオーバー） ---------- */
+  '稟議書の山に埋もれました。<br>承認フローは全部で<em>14段階</em>です。': 'Buried under approval forms.<br>The approval flow has <em>14 steps</em>.',
+  '「至急」スタンプを押されました。<br>本日中の対応を<em>お願いされました</em>。': 'Stamped "URGENT."<br>You\'ve been <em>asked</em> to handle it today.',
+  '追加資料を受け取ってしまいました。<br>明朝までに<em>目を通す</em>そうです。': 'You accepted extra documents.<br>Apparently you\'ll <em>read them</em> by morning.',
+  '上司のタックルに捕まりました。<br>「ちょっと<em>飲みながら</em>話そうか」': 'Tackled by your boss.<br>"Let\'s talk <em>over a drink</em>."',
+  '部長に「ちょっといいかな」されました。<br>話は<em>2時間</em>続きました。': 'The manager asked, "Got a minute?"<br>It lasted <em>2 hours</em>.',
+  '社長に呼び止められました。<br><em>経営方針</em>を朝まで聞かされます。': 'Stopped by the CEO.<br>You\'ll hear his <em>business vision</em> until dawn.',
+  'クライアントに捕まりました。<br>仕様が<em>全部</em>変わりました。': 'Caught by the client.<br><em>Every</em> spec has changed.',
+  'クライアントの電話に出てしまいました。<br>「今から<em>来れます</em>よね？」': 'You answered the client\'s call.<br>"You <em>can come over</em> now, right?"',
+  '専務に肩を組まれました。<br><em>朝まで</em>はしご酒です。': 'The director put his arm around you.<br>Bar hopping <em>until dawn</em>.',
+  '酔っ払いに絡まれました。<br>同じ話を<em>7回</em>聞かされます。': 'Cornered by a drunk.<br>You\'ll hear the same story <em>7 times</em>.',
+  '車に驚いて立ちすくみました。<br>気づけば<em>終電</em>が出ていました。': 'Frozen by a car.<br>The <em>last train</em> left without you.',
+  '防火シャッターに挟まれました。<br>救助は<em>明朝</em>です。': 'Stuck in a fire shutter.<br>Rescue arrives <em>tomorrow morning</em>.',
+  '中ボスの部長に捕まりました。<br>今期の<em>人事評価</em>が下がりました。': 'Caught by the manager.<br>Your <em>performance review</em> just dropped.',
+  '客引きに捕まりました。<br>「<em>60分飲み放題</em>2980円っす！」': 'Caught by a tout.<br>"<em>60 min all-you-can-drink</em>, only ¥2,980!"',
+  '工事現場に突っ込みました。<br>始末書を<em>3枚</em>書くことに。': 'Crashed into a construction site.<br>You owe <em>3</em> incident reports.',
+  'ビールケースの山に埋もれました。<br>片付けを<em>手伝わされます</em>。': 'Buried under beer crates.<br>Now you <em>have to help clean up</em>.',
+  '壁で跳ね返った王冠が当たりました。<br>「<em>端っこなら安全</em>」は甘かった。': 'Hit by a bottle cap off the wall.<br>"<em>The edge is safe</em>" was wishful thinking.',
+  'ビールの王冠が当たりました。<br>「<em>もう一杯</em>だけ」が始まります。': 'Hit by a beer cap.<br>"<em>Just one more</em>" begins.',
+  '薬師寺部長に回収されました。<br>研究所で<em>経過観察</em>です。': 'Retrieved by Yakushiji.<br>You\'re <em>under observation</em> at the lab.',
+  '巨大な社長に踏まれました。<br>明日から<em>本社勤務</em>です。': 'Stomped by the giant CEO.<br>You start at <em>HQ</em> tomorrow.',
+  'モーレツZの瓶が当たりました。<br>なぜか<em>働きたく</em>なってきました。': 'Hit by a Moretsu Z bottle.<br>For some reason you <em>want to work</em>.',
+  'ゴミ袋の山に突っ込みました。<br>明日は<em>燃えるゴミ</em>の日です。': 'Crashed into the garbage bags.<br>Tomorrow is <em>burnable trash</em> day.',
+  '注射を打たれました。<br>「<em>追加のZ</em>だ。よく効くぞ」': 'You got a shot.<br>"<em>Extra Z</em>. Works like a charm."',
+  'カプセルが当たりました。<br>中身は<em>試作品</em>だそうです。': 'Hit by a capsule.<br>It\'s a <em>prototype</em>, apparently.',
+  'フラスコが割れて浴びました。<br>洗浄に<em>朝まで</em>かかります。': 'Splashed by a broken flask.<br>Decontamination takes <em>until dawn</em>.',
+  'キャリーケースの山に埋もれました。<br>終電が<em>目の前で</em>出ました。': 'Buried under suitcases.<br>The last train left <em>right in front of you</em>.',
+  'チラシを受け取ってしまいました。<br>お通し代<em>500円</em>です。': 'You took a flyer.<br>That\'s a <em>¥500</em> table charge.',
+  '体脂肪が尽きてガリガリに。<br>ラーメンを食べに行く<em>体力</em>もありません。': 'Out of body fat, skin and bones.<br>No <em>energy</em> left even for ramen.',
+});
+
 // 日本語のまま出す文：背景の看板・机の名札・弾や判子の文字（絵の一部）
 for (const s of [
   'Z研究所 被験者募集', 'おでん', 'やきとり', 'ノー残業デー', 'ハイボール', 'ビール', 'モーレツZ 近日発売', '中央', '中期経営計画', '乾杯',
@@ -1869,7 +1995,7 @@ function limb(c, pts, w, col, outline) {
 // 吹き出しは文字ごとに一度だけ画像にして貼る（毎フレームの文字の描画と幅の計測が重いため）
 const BUBBLE_W = {};
 function bubble(c, s, x, y, size) {
-  size = size || 11;
+  s = tr(s); size = size || 11; // 幅を測る前に訳す
   const key = size + s, h = size + 10;
   let w = BUBBLE_W[key];
   if (w == null) { c.font = F.zk(size); w = BUBBLE_W[key] = c.measureText(s).width + 14; }
@@ -5251,11 +5377,11 @@ function drawCutin(c) {
   const px = lerp(W + 170, W * 0.64, easeOut(clamp(t / 0.4, 0, 1))) - t * 16; // 半分まで滑り込み、ゆっくり流れる
   c.save(); c.globalAlpha = a * 0.5; c.drawImage(cutSprite(C.kind), px - 230, cy - 270, 460, 498); c.restore();
   const nx = lerp(-W * 0.6, W / 2, easeOut(clamp((t - 0.08) / 0.35, 0, 1))) + t * 10;
-  const size = Math.min(24, Math.floor((W - 30) / C.name.length));
+  const nm = tr(C.name), size = Math.min(24, Math.floor((W - 30) / (LANG === 'en' ? nm.length * 0.62 : nm.length))); // 英字は幅が約半分
   c.save(); c.globalAlpha = a;
   txt(c, `業務命令　第${C.no}号`, nx, cy - 38, F.zk(12, 900), COL.memo, 'center', COL.ink, 3);
-  txt(c, C.name, nx, cy - 6, F.zk(size, 900), '#fff', 'center', '#7a0e08', 6);
-  txt(c, '「' + C.say + '」', nx, cy + 30, F.zk(13, 700), '#ffe27a', 'center', COL.ink, 4);
+  txt(c, nm, nx, cy - 6, F.zk(size, 900), '#fff', 'center', '#7a0e08', 6);
+  txt(c, q(C.say), nx, cy + 30, F.zk(13, 700), '#ffe27a', 'center', COL.ink, 4);
   c.restore();
 }
 // 却下の瞬間：ボスの顔に小さな「却下」の判子を押す（すぐ消える）。手当の額は上の表示に出す
@@ -5304,7 +5430,7 @@ function drawBossIntro(c) {
   for (let i = 0; i < 12; i++) { c.rotate(TAU / 12); c.beginPath(); c.moveTo(0, 0); c.lineTo(-14, -230); c.lineTo(14, -230); c.closePath(); c.fill(); }
   c.restore(); c.globalAlpha = a;
   c.font = F.mc(15); c.textAlign = 'center'; c.textBaseline = 'middle';
-  const title = b.def.name.split('').join(' ');
+  const title = LANG === 'en' ? tr(b.def.name).toUpperCase() : b.def.name.split('').join(' ');
   c.fillStyle = '#d9b45a'; c.fillText(title, W / 2, cy - 72);
   // 名前を一文字ずつ
   const chars = b.def.who.split(''), size = 54, gap = 8;
@@ -5325,8 +5451,8 @@ function drawBossIntro(c) {
   const done = t - 0.35 - chars.length * 0.14;
   if (done > 0) {
     c.globalAlpha = a * clamp(done / 0.3, 0, 1);
-    c.font = F.zk(11, 700); c.fillStyle = '#c9b48a'; c.fillText(b.def.read.split('').join(' '), W / 2, cy + 32);
-    c.font = F.mc(16); c.fillStyle = '#f2e6c8'; c.fillText('― ' + b.def.epi + ' ―', W / 2, cy + 66);
+    c.font = F.zk(11, 700); c.fillStyle = '#c9b48a'; c.fillText((LANG === 'en' ? tr(b.def.who).toUpperCase() : b.def.read).split('').join(' '), W / 2, cy + 32); // 英語は読みの代わりにローマ字の名前
+    c.font = F.mc(16); c.fillStyle = '#f2e6c8'; c.fillText('― ' + tr(b.def.epi) + ' ―', W / 2, cy + 66);
   }
   c.restore();
   if (done > 0 && done < 0.25) { c.fillStyle = `rgba(255,240,190,${(0.25 - done) * 1.6})`; c.fillRect(0, 0, W, H); }
@@ -6311,12 +6437,12 @@ const STORY_AFTER = {
 // エンディング（5面の社長を倒したあと。通常モードだけ）。娘のセリフは帰宅時刻と残りの脂肪で変わる
 function endingPages(info) {
   const early = info.min < CAKE_MIN, /* 5面を通すと最速でも19時台になるので、20時前を「間に合った」にする */ hhmm = `${Math.floor(info.min / 60) % 24}:${String(info.min % 60).padStart(2, '0')}`;
-  const fatLine = info.fat >= 6 ? '<br>パパ、今日もおなか<b>ぽよぽよ</b>だね！' : info.fat <= 1 ? '<br>……パパ、なんか<b>痩せた</b>？' : '';
+  const fatLine = tr(info.fat >= 6 ? '<br>パパ、今日もおなか<b>ぽよぽよ</b>だね！' : info.fat <= 1 ? '<br>……パパ、なんか<b>痩せた</b>？' : '');
   return [
     { who: '社長', text: STORY_AFTER.kyoshacho.text, art(c) { storyRoom(c, '#2a2f3a', '#323846'); storyBoss(c, 'shacho', 110, 116, 0.55); storyHero(c, 232, 124, 0.6); txt(c, '自宅前', 160, 18, F.dg(14), COL.memo, 'center', COL.ink, 4); } },
     { who: HERO.family, text: '……帰りましょう、社長。<b>定時</b>は、誰にでもあるんです。', art(c) { storyRoom(c, '#2a2f3a', '#323846'); storyHero(c, 130, 124, 0.6); storyBoss(c, 'shacho', 222, 116, 0.5); txt(c, 'お先に失礼します', 160, 18, F.dg(14), '#fff', 'center', COL.ink, 4); } },
-    { fx: 'white', text: hhmm + '。玄関のドアを開けると――', art(c) { storyHouse(c, true); } },
-    { who: '娘', text: 'パパおかえり！' + (early ? 'ケーキ、まだ火つけてないよ！<b>間に合ったね！</b>' : '<b>おそーい！</b>……でも、おかえり！') + fatLine, art(c) { storyRoom(c, '#f2e6c8', '#e6d6b0'); storyHero(c, 110, 126, 0.6); storyGirl(c, 214, 128); storyCake(c, 262, 70); } },
+    { fx: 'white', text: t('{0}。玄関のドアを開けると――', hhmm), art(c) { storyHouse(c, true); } },
+    { who: '娘', text: tr('パパおかえり！') + tr(early ? 'ケーキ、まだ火つけてないよ！<b>間に合ったね！</b>' : '<b>おそーい！</b>……でも、おかえり！') + fatLine, art(c) { storyRoom(c, '#f2e6c8', '#e6d6b0'); storyHero(c, 110, 126, 0.6); storyGirl(c, 214, 128); storyCake(c, 262, 70); } },
     { text: '翌朝。会社の自販機に、新商品が並んでいた。<br>「<b>モーレツZ2</b>　定時に帰れる力を、あなたに。」<br><b>― 完 ―</b>', art(c) { storyRoom(c, '#c3cbbd', '#b8c1b2'); storyVend(c, 160, 90); } },
   ];
 }
@@ -6333,6 +6459,7 @@ const PH_PART = 'のにをがはでとへもや', PH_KEEP = /わが社/g; // PH_
 const phCls = ch => /[ぁ-ゖ]/.test(ch) ? 'h' : /[\u4e00-\u9fff々〆ヵヶ]/.test(ch) ? 'k' : /[ァ-ヺー]/.test(ch) ? 't'
   : /[、。，．！？!?…‥」』）)】―　]/.test(ch) ? 'c' : /[「『（(【]/.test(ch) ? 'o' : /[0-9A-Za-zＡ-Ｚａ-ｚ０-９:％%.]/.test(ch) ? 'a' : 'x';
 function phrase(html) {
+  if (LANG === 'en') return html; // 英語は単語の切れ目で折り返すので要らない
   const tk = storyTokens(html), keep = new Set(), plain = tk.map(t => t[0] === '<' ? '' : t[0] === '&' ? '_' : t);
   for (const m of plain.join('').matchAll(PH_KEEP)) for (let i = 1; i < m[0].length; i++) keep.add(m.index + i); // 語の中の位置（文字の数え方）
   let out = '', prev = '', pch = '', run = 0, n = 0;
@@ -6353,7 +6480,7 @@ function storySeen(id) { if (!STORY_SEEN[id]) { STORY_SEEN[id] = 1; Store.set('s
 function storyAfterHTML(kind) {
   const s = STORY_AFTER[kind]; if (!s || !storyOn()) return '';
   storySeen(kind);
-  return `<span class="say ph"><b>${esc(s.who)}</b>${phrase(`「${s.text}」`)}</span>`;
+  return `<span class="say ph"><b>${esc(tr(s.who))}</b>${phrase(q(s.text))}</span>`;
 }
 
 /* ---------- 絵の部品 ---------- */
@@ -6456,10 +6583,10 @@ function showStory(pages, done, last) {
 }
 function storyPage() {
   const R = storyRun, pg = R.pages[R.i], art = $('storyArt'), stage = $('storyStage'), fl = $('storyFlash');
-  $('storyWho').textContent = pg.who || ''; $('storyWho').hidden = !pg.who;
+  $('storyWho').textContent = tr(pg.who || ''); $('storyWho').hidden = !pg.who;
   $('storyStep').textContent = `${R.i + 1} / ${R.pages.length}`;
   $('storyCard').hidden = !pg.card; art.hidden = !!pg.card;
-  if (pg.card) { $('storyCardTitle').textContent = pg.card[0]; $('storyCardSub').textContent = pg.card[1]; }
+  if (pg.card) { $('storyCardTitle').textContent = tr(pg.card[0]); $('storyCardSub').textContent = tr(pg.card[1]); }
   else { drawStoryArt(art, pg, true); art.classList.remove('on'); void art.offsetWidth; art.classList.add('on'); } // 絵はフェードインしてゆっくり寄る
   stage.classList.remove('shake'); fl.className = 'sflash'; void stage.offsetWidth;
   if (pg.fx === 'shake') { stage.classList.add('shake'); sfx('deflate'); Haptic.tap('medium'); }
@@ -6467,7 +6594,7 @@ function storyPage() {
   else sfx('pick');
   // セリフは1字ずつ。全文を先に組んで改行位置を決め、見えるかどうかだけ切り替える（出す途中で折り返しが動かない）
   const box = $('storyText');
-  box.innerHTML = storyTokens(phrase(pg.text)).map(t => t[0] === '<' ? t : `<span class="sh">${t}</span>`).join('');
+  box.innerHTML = storyTokens(phrase(tr(pg.text))).map(t => t[0] === '<' ? t : `<span class="sh">${t}</span>`).join('');
   R.tk = [...box.querySelectorAll('.sh')]; R.n = RM ? R.tk.length : 0; R.shown = 0;
   clearInterval(R.timer); storyType();
   if (R.n < R.tk.length) R.timer = setInterval(() => { R.n++; storyType(); }, 38);
@@ -6508,10 +6635,10 @@ function storyAfterPages() {
 // あらすじ：見た場面だけ読み返せる。上のボタンで紙芝居をもう一度見られる
 function showSynopsis() {
   const seen = !!STORY_SEEN.prologue, after = storyAfterPages();
-  const pro = seen ? PROLOGUE.map((pg, i) => pg.card ? '' : `<li>${pg.who ? `<b>${esc(pg.who)}</b>` : ''}<canvas class="tipart" data-story="${i}" aria-hidden="true"></canvas><p class="ph">${phrase(pg.text)}</p></li>`).join('')
+  const pro = seen ? PROLOGUE.map((pg, i) => pg.card ? '' : `<li>${pg.who ? `<b>${esc(tr(pg.who))}</b>` : ''}<canvas class="tipart" data-story="${i}" aria-hidden="true"></canvas><p class="ph">${phrase(tr(pg.text))}</p></li>`).join('')
     : '<li class="lock"><b>？？？</b><p>「退勤を打刻」で始まります</p></li>';
   const aft = STAGES.map((st, i) => STORY_AFTER[st.boss] && (STORY_SEEN[st.boss]
-    ? `<li><b>${esc(st.name)} ${esc(STORY_AFTER[st.boss].who)}</b><p class="ph">${phrase(`「${STORY_AFTER[st.boss].text}」`)}</p>${i === STAGES.length - 1 && STORY_SEEN.ending ? '<p>そして、家に帰った。（続きは「ここまで通して見る」で）</p>' : ''}</li>`
+    ? `<li><b>${esc(st.name)} ${esc(tr(STORY_AFTER[st.boss].who))}</b><p class="ph">${phrase(q(STORY_AFTER[st.boss].text))}</p>${i === STAGES.length - 1 && STORY_SEEN.ending ? `<p>${tr('そして、家に帰った。（続きは「ここまで通して見る」で）')}</p>` : ''}</li>`
     : `<li class="lock"><b>${esc(st.name)} ？？？</b><p>通常モードでボスを倒すと読めます</p></li>`)).join('');
   const btns = seen ? `<div class="row"><button id="storyReplay" class="btn" type="button">▶ プロローグを見る</button>${after.length ? '<button id="storyAll" class="ghost" type="button">▶ ここまで通して見る</button>' : ''}</div>` : '';
   openPanel('あらすじ', `<p class="pnote">モーレツZ事件　見た場面はいつでも見返せます</p>${btns}<ul class="tips">${pro}${aft}</ul>`);
