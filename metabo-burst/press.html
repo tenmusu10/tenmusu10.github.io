@@ -158,14 +158,15 @@
   <p>開発：CYCLE Games ／ <a href="about.html">紹介ページ</a> ／ <a href="guidelines.html">配信・動画ガイドライン</a> ／ <a href="privacy.html">プライバシーポリシー</a></p>
 </footer>
 <script>
-  // Google Play で一般公開したら true にして、配信日を書き換える（about.html と同じ）
-  const PLAY_PUBLIC = false;
-  const RELEASE_DATE = '2026年11月';
+  // Google Play で一般公開しているかと配信日は release.json で決まる（about.html と同じ）
   const PLAY_URL = 'https://play.google.com/store/apps/details?id=io.github.tenmusu10.metaboburst';
-  if (PLAY_PUBLIC) {
-    document.getElementById('releaseCell').innerHTML = 'Android：' + RELEASE_DATE + ' 配信開始<br>ブラウザ版：配信中';
+  fetch('release.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).catch(() => ({})).then(rel => {
+    if (rel.playPublic !== true) return;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rel.releaseDate || '');
+    const date = m ? `${+m[1]}年${+m[2]}月${+m[3]}日 配信開始` : '配信中';
+    document.getElementById('releaseCell').innerHTML = 'Android：' + date + '<br>ブラウザ版：配信中';
     document.getElementById('playLink').innerHTML = ' ／ <a href="' + PLAY_URL + '" rel="noopener">Google Play</a>';
-  }
+  });
 </script>
 </body>
 </html>
