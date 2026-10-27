@@ -471,8 +471,9 @@ body{
 'use strict';
 // タイトルのテスト用ステージ選択。npm run release で作る公開用ビルドでは自動で false になる
 const SHOW_TEST = false;
-// Google Play で一般公開したら true にする。ブラウザ版のタイトルに Android版へのリンクが出る（アプリ版には出ない）
-// クローズドテスト中はテスター以外がリンクを開けないため false のまま
+// Google Play で一般公開しているか。true ならブラウザ版のタイトルに Android版へのリンクが出る（アプリ版には出ない）
+// ここは手で変えない：ビルド（npm run build / release・build-single.py）が release.json の playPublic を入れる。
+// 切り替えは Actions →「Play 公開の切り替え」。開発中（index.html を直接開く）は false のまま
 const PLAY_PUBLIC = false;
 const PLAY_URL = 'https://play.google.com/store/apps/details?id=io.github.tenmusu10.metaboburst';
 // 今日の日付。テスト用ビルドだけ ?today=2026-12-05 で日付を変えられる（今日のお題・忘年会シーズン・お知らせの確認用）
