@@ -109,13 +109,13 @@
   <p>開発：CYCLE Games ／ <a href="about.html">紹介ページ</a> ／ <a href="press.html">プレスキット</a> ／ <a href="privacy.html">プライバシーポリシー</a></p>
 </footer>
 <script>
-  // Google Play で一般公開したら true にする（about.html・press.html と同じ）
-  const PLAY_PUBLIC = false;
+  // Google Play で一般公開しているかは release.json で決まる（about.html・press.html と同じ）
   const PLAY_URL = 'https://play.google.com/store/apps/details?id=io.github.tenmusu10.metaboburst';
-  if (PLAY_PUBLIC) {
+  fetch('release.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).catch(() => ({})).then(rel => {
+    if (rel.playPublic !== true) return;
     const c = document.getElementById('credit');
     c.textContent = c.textContent.replace('ブラウザ版：', 'Android版：' + PLAY_URL + '\nブラウザ版：');
-  }
+  });
 </script>
 </body>
 </html>

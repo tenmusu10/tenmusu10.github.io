@@ -108,16 +108,17 @@
   <p>開発：CYCLE Games ／ <a href="press.html">プレスキット</a> ／ <a href="guidelines.html">配信・動画ガイドライン（実況・収益化OK）</a> ／ <a href="privacy.html">プライバシーポリシー</a></p>
 </footer>
 <script>
-  // Google Play で一般公開したら true にする（クローズドテスト中はテスター以外が開けないため）。press.html・guidelines.html も同じ
-  const PLAY_PUBLIC = false;
+  // Google Play で一般公開しているかは release.json の playPublic で決まる（metabo-burst の Actions「Play 公開の切り替え」が書き換え、
+  // web.yml がここに置く）。読めないときは公開前として扱う（クローズドテスト中はテスター以外が開けないため）。press.html・guidelines.html も同じ
   const PLAY_URL = 'https://play.google.com/store/apps/details?id=io.github.tenmusu10.metaboburst';
-  if (PLAY_PUBLIC) {
+  fetch('release.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : {}).catch(() => ({})).then(rel => {
+    if (rel.playPublic !== true) return;
     const b = document.getElementById('storeBtn');
     b.href = PLAY_URL;
     b.rel = 'noopener';
     b.removeAttribute('aria-disabled');
     b.innerHTML = 'Android版<small>Google Playで入手</small>';
-  }
+  });
 </script>
 </body>
 </html>
