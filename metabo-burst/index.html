@@ -640,7 +640,7 @@ function resize() {
   scale = Math.min(sw / W, sh / H);
   const fw = Math.max(1, Math.floor(W * scale)), fh = Math.max(1, Math.floor(H * scale));
   frame.style.width = fw + 'px'; frame.style.height = fh + 'px';
-  const dpr = Math.max(0.75, Math.min(window.devicePixelRatio || 1, 2) * RES.f); // 高すぎる解像度はスマホで重いので2倍まで
+  const dpr = Math.max(0.75, Math.min(window.devicePixelRatio || 1, typeof SETTINGS !== 'undefined' && SETTINGS.eco ? 1.25 : 2) * RES.f); // 高すぎる解像度はスマホで重いので2倍まで（設定の軽量モードでは1.25倍まで）
   cv.width = ui.width = Math.round(fw * dpr); cv.height = ui.height = Math.round(fh * dpr);
 }
 addEventListener('resize', resize);
@@ -1024,8 +1024,13 @@ async function reportMailUrl() {
 
 /* ================= 振動 ================= */
 const Haptic = {
+  last: 0,
   tap(kind) {
     if (!SETTINGS.vib) return;
+    // 軽い・中くらいの振動は0.08秒に1回まで（無敵中の連続粉砕などで鳴りっぱなしにしない）。強いものと注意の振動は必ず出す
+    const now = performance.now();
+    if ((kind === 'light' || kind === 'medium') && now - this.last < 80) return;
+    this.last = now;
     const h = CAP().Haptics;
     if (h) {
       if (kind === 'warn') h.notification({ type: 'WARNING' }).catch(() => {});
@@ -1396,6 +1401,7 @@ Object.assign(EN, {
 
   /* ---------- チュートリアル ---------- */
   'チュートリアル': 'Tutorial',
+  '軽量モード（画面を少しぼかして、バッテリーを長持ちさせる）': 'Battery saver (slightly lower resolution, less heat)',
   'ボス戦から再挑戦（記録なし）': 'Retry from the boss (not recorded)',
   '{#}　ボスから・記録なし': '{#}  retried from boss, not recorded',
   'スマホを縦にして遊んでください': 'Please turn your phone upright to play',
@@ -4402,7 +4408,7 @@ function drawTexts(c) {
 
 /* ================= 射撃 ================= */
 function launchPoint() { const B = BG(); return { x: P.x + B.cx * K, y: P.y + (B.cy + 4) * K }; }
-function fire(dir, power) {
+function fire(dir, power, quick) { // quick：撃つボタン・タップの軽い発射（連射しても画面が揺れ続けないよう揺れを小さく）
   const i = POP.find(j => P.slot[j]); if (i === undefined) return;
   const B = BG(), kind = P.slot[i];
   const sx = P.x + B.cx * K, sy = P.y + (B.cy + 4) * K;
@@ -4414,7 +4420,7 @@ function fire(dir, power) {
   sparks(sx, sy, 10); ring(sx, sy, 110, 'rgba(255,255,255,.9)', 6);
   for (const e of G.ents) if (e.shot && !e.hard && Math.hypot(e.x - sx, e.y - sy) < 105) { e.dead = true; burst(e.x, e.y, 5, e.type === 'stamp' ? '#f4c3bd' : null); }
   if (power > 0.8) text('ブルルンッ!', sx + rnd(-10, 10), sy - 40, 16, '#fff', { rot: rnd(-0.2, 0.2) });
-  G.shake = Math.max(G.shake, 5); G.stats.shots++;
+  G.shake = Math.max(G.shake, quick ? 2 : 5); G.stats.shots++;
   P.hbFlash = 1.4; P.fatV -= 1.2;
   multCue(false);
   G.parts.push({ type: 'ring', x: P.x, y: P.y, r0: 120, r1: 36, life: 0.45, max: 0.45, col: 'rgba(157,255,191,.95)', w: 5 });
@@ -4437,7 +4443,7 @@ function updateBullets(dt) {
       const hb = hitbox();
       if (Math.hypot(b.x - hb.x, b.y - hb.y) < 54) {
         const i = POP.find(j => !P.slot[j]);
-        if (i !== undefined) { P.slot[i] = b.kind; P.openV[i] -= 6; b.dead = true; G.stats.catches++; text('再吸収！', hb.x, hb.y - 60, 16, COL.memo); unlock('catch'); sfx('snap'); sparks(hb.x, hb.y, 8); }
+        if (i !== undefined) { P.slot[i] = b.kind; P.openV[i] -= 6; b.dead = true; G.stats.catches++; text('再吸収！', hb.x, hb.y - 60, 16, COL.memo); unlock('catch'); sfx('snap'); sparks(hb.x, hb.y, 8); Haptic.tap('light'); }
       }
     }
   }
@@ -4470,7 +4476,7 @@ function toLocal(e) { const r = cv.getBoundingClientRect(); return { x: (e.clien
 function canAct() { return G.mode === 'play' && !G.exiting; } // 弾切れの猶予中も動ける（撃つのは脂肪0なので不可）
 function quickFire() {
   if (!canAct() || ammo() === 0 || G.fireCD > 0) return;
-  fire({ x: clamp(P.vx / 1600, -0.25, 0.25), y: -1 }, 0.85); G.fireCD = 0.12;
+  fire({ x: clamp(P.vx / 1600, -0.25, 0.25), y: -1 }, 0.85, true); G.fireCD = 0.12;
 }
 function startCharge(kb, hold) { P.charging = true; P.kb = kb; P.hold = !!hold; P.pullAmt = 0; G.kbAim = 0; chargeSound(true); }
 cv.addEventListener('pointerdown', e => {
@@ -4888,6 +4894,8 @@ function collisions() {
         e.dead = true; burst(e.x, e.y, e.type === 'bucho' ? 26 : 14); sparks(e.x, e.y, 10); if (e.type !== 'mid') { G.stats.crushed++; const v = OBJ_PTS[e.type] || 100; addScore(v); scorePopup(Math.round(v * modeMult()), e.x, e.y + 10, 1); }
         text(KILL_LINE[e.type] || '粉砕!', e.x, e.y - 20, e.type === 'bucho' || e.type === 'mid' ? 20 : 16, '#fff');
         sfx('crush'); G.shake = Math.max(G.shake, e.type === 'bucho' ? 12 : 6);
+        // 撃破の手応え：ほんの一瞬止めて、軽く振動（同じフレームで何体倒しても長さは足さない）
+        G.hitstop = Math.max(G.hitstop, e.type === 'bucho' || e.type === 'mid' ? 0.06 : 0.035); Haptic.tap('light');
         if (e.type === 'bucho' && Math.random() < 0.75) addEnt({ type: 'item', kind: 'karaage', x: e.x, y: e.y, r: 13 });
         if (e.type === 'mid') { countUp('mid', 3, 'mid3'); addEnt({ type: 'item', kind: 'ramen', x: e.x, y: e.y, r: 13 }); if (G.stage === 1 && !G.extended) { G.extended = true; addEnt({ type: 'item', kind: 'oneup', x: clamp(e.x + 70, WL + 40, WR - 40), y: e.y, r: 13 }); } /* エクステンドは1回のプレイで1個だけ */ smashFx(e.x, e.y, SMASH_COL.bucho, '中ボス撃破!!', OBJ_PTS.mid); for (const q of G.ents) if (q.shot) q.dead = true; }
       } else { text('ぐふっ', e.x, e.y - 30, 15, '#fff'); sfx('boyon'); }
@@ -5678,8 +5686,12 @@ function render() {
 
 /* ================= ループ ================= */
 let last = performance.now();
+// 画面の書き換えが60Hzより速い端末（120Hz・144Hz）では1フレームおきに描く。バッテリーを長持ちさせるため。
+// 90Hz（11.1ms）はそのまま、120Hz（8.3ms）は60fps、144Hz（6.9ms）は72fpsになる
+const MIN_FRAME_MS = 9.5;
 function loop(now) {
   requestAnimationFrame(loop);
+  if (now - last < MIN_FRAME_MS) return;
   const rdt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
   if (G.mode === 'paused' || G.mode === 'tip') { render(); return; }
   const slowing = P.charging && G.mode === 'play';
@@ -6012,10 +6024,12 @@ function showSettings() {
     ${Notify.available() ? `<label class="set"><span>毎日のお知らせ</span><button id="setNotif" class="tbtn" type="button" aria-pressed="${SETTINGS.notif === true}">${SETTINGS.notif === true ? 'ON' : 'OFF'}</button></label>
     <label class="set" for="setNotifHour"><span>お知らせの時刻</span><select id="setNotifHour">${NOTIFY_HOURS.map(h => `<option value="${h}"${h === Notify.hour() ? ' selected' : ''}>${h}:00</option>`).join('')}</select></label>` : ''}
     ${SHOW_TEST || LANG_AUTO ? `<label class="set"><span>言語 / Language</span><button id="setLang" class="tbtn" type="button">${LANG === 'en' ? 'English' : '日本語'}</button></label>` : ''}
+    <label class="set"><span>軽量モード（画面を少しぼかして、バッテリーを長持ちさせる）</span><button id="setEco" class="tbtn" type="button" aria-pressed="${!!SETTINGS.eco}">${SETTINGS.eco ? 'ON' : 'OFF'}</button></label>
     <label class="set"><span>チュートリアル</span><button id="setTut" class="tbtn" type="button" aria-pressed="${!tutDone()}">${tutDone() ? 'OFF' : 'ON'}</button></label>
     <p class="pnote"><a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>　<button id="setCredits" class="linkbtn" type="button">クレジット</button>　<button id="setReport" class="linkbtn" type="button">不具合を報告</button>${Ads.privacy ? '　<button id="setAdPrivacy" class="linkbtn" type="button">広告のプライバシー設定</button>' : ''}</p>`);
   const tog = (id, key) => $(id).addEventListener('click', () => { SETTINGS[key] = !SETTINGS[key]; saveSettings(); $(id).setAttribute('aria-pressed', SETTINGS[key]); $(id).textContent = SETTINGS[key] ? 'ON' : 'OFF'; if (key === 'sound' && SETTINGS.sound) titleMusicKick(); if (key === 'vib') Haptic.tap('medium'); });
-  tog('setSound', 'sound'); tog('setVib', 'vib'); tog('setTips', 'tips');
+  tog('setSound', 'sound'); tog('setVib', 'vib'); tog('setTips', 'tips'); tog('setEco', 'eco');
+  $('setEco').addEventListener('click', () => resize());
   $('setBgm').addEventListener('input', e => { SETTINGS.bgm = +e.target.value; saveSettings(); });
   $('setSe').addEventListener('input', e => { SETTINGS.se = +e.target.value; saveSettings(); });
   $('setSe').addEventListener('change', () => sfx('pick'));
