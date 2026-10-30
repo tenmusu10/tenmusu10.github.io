@@ -280,8 +280,12 @@ body{
 .verdict .say{display:block;margin-top:2cqw;padding:1.6cqw 2.4cqw;background:rgba(255,255,255,.07);border-left:.8cqw solid var(--memo);border-radius:1cqw;font-size:3.5cqw;font-weight:700;line-height:1.6;text-align:left;text-wrap:pretty}
 .verdict .say b{color:var(--memo);margin-right:1cqw}
 .verdict .say b + b,.verdict .say b b{margin:0}
+/* ブラウザ版をスマホで横にしたときだけ出す案内（アプリのスマホは縦固定。タブレットは高さがあるので出ない） */
+.rotnote{display:none}
+@media (orientation:landscape) and (max-height:500px){.rotnote{display:grid;place-items:center;position:fixed;inset:0;z-index:50;padding:16px;background:#101417;color:#f4efe2;font-family:var(--f-display);font-size:20px;text-align:center}}
 </style>
 
+<div id="rotateNote" class="rotnote" aria-live="polite">スマホを縦にして遊んでください</div>
 <div id="stage">
   <div id="frame">
     <canvas id="cv" aria-label="ゲーム画面"></canvas>
@@ -366,6 +370,9 @@ body{
       <div class="row">
         <button id="retryBtn" class="btn" type="button">このフロアから再挑戦</button>
         <button id="overTitleBtn" class="ghost" type="button">タイトルへ</button>
+      </div>
+      <div id="bossRetryRow" class="row" hidden>
+        <button id="bossRetryBtn" class="btn" type="button">ボス戦から再挑戦（記録なし）</button>
       </div>
       <div id="easyRetryRow" class="row" hidden>
         <button id="easyRetryBtn" class="easy" type="button"><span id="easyRetryLabel"></span><small id="easyRetryDesc"></small></button>
@@ -1389,6 +1396,9 @@ Object.assign(EN, {
 
   /* ---------- チュートリアル ---------- */
   'チュートリアル': 'Tutorial',
+  'ボス戦から再挑戦（記録なし）': 'Retry from the boss (not recorded)',
+  '{#}　ボスから・記録なし': '{#}  retried from boss, not recorded',
+  'スマホを縦にして遊んでください': 'Please turn your phone upright to play',
   'できた！': 'Nice!',
   '次へ ▶': 'Next ▶',
   'スキップ': 'Skip',
@@ -5024,10 +5034,12 @@ function showOver() {
   ovCause.innerHTML = '<span style="color:var(--hanko);font-family:var(--f-display);font-weight:400">' + tr(d.type === 'starve' ? '体脂肪率 0%' : '社会的に死亡') + '</span><br>' + tr(d.type === 'starve' ? CAUSE.starve : (CAUSE[d.by] || CAUSE.pile));
   const remain = (G.endless ? `${G.loop + 1}周目 ` : G.rush ? `ボスラッシュ ${G.rush.i + 1}/${STAGES.length} ` : '') + (G.bossPhase ? 'ボス戦' : `出口まで残り ${Math.max(0, Math.ceil((st.len - G.dist) / 10))}m`);
   setAdButtons();
-  ovStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>到達</dt><dd>${st.name}　${remain}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd>`;
+  ovStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.bossRetry ? '　ボスから・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>到達</dt><dd>${st.name}　${remain}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd>`;
   // 同じフロアで3回続けてゲームオーバーになったら、かんたんモードでの再挑戦を勧める（通常モードだけ）
   const f = G.fails && G.fails.stage === G.stage ? G.fails : (G.fails = { stage: G.stage, n: 0 });
   f.n++;
+  // ボス戦でやられたら、道中を飛ばしてボスから挑み直せる（通常の流れのときだけ。今日のお題は並びを固定しているので出さない）
+  $('bossRetryRow').hidden = !(G.bossPhase && !G.bossMode && !G.rush && !G.endless && !G.daily);
   $('easyRetryRow').hidden = !(f.n >= EASY_SUGGEST && !G.easy && !G.ura && !G.endless && !G.daily && !G.bossMode && !G.rush && !G.test);
   retryBtn.textContent = G.endless ? '1周目から再挑戦' : G.rush ? '1体目から再挑戦' : G.bossMode ? 'もう一度ボスに挑む' : 'このフロアから再挑戦';
   resetShare(); ovOver.hidden = false;
@@ -5063,7 +5075,7 @@ function stageClear() {
       endClock.className = G.daily ? 'clock' : 'tcard'; // お題はひとことだけ。ほかはタイムカード
       if (G.daily) endClock.textContent = '今日のお題 クリア'; else endClock.innerHTML = timecardHTML();
       endMsg.innerHTML = (story ? tr('<span class="say"><b>娘</b>「パパおかえり！」</span>') : '') + t(ammo() === 6 ? '{0}係長、体脂肪は<em>満タン</em>のまま帰宅。<br>今夜もビールがうまい。' : '{0}係長、体脂肪は残り<em>{1}/6</em>。<br>ちょっと痩せた気がします。', tr(HERO.family), ammo());
-      endStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd><dt>粉砕した障害</dt><dd>${G.stats.crushed}件</dd><dt>食べた物</dt><dd>${G.stats.items}個</dd>`;
+      endStats.innerHTML = `<dt>スコア</dt><dd>${fmt(G.score)}${G.test ? '　テスト・記録なし' : G.bossRetry ? '　ボスから・記録なし' : G.cont ? '　つづきから・記録なし' : G.newRecord ? '　NEW RECORD!' : ''}</dd><dt>ハイスコア</dt><dd>${fmt((G.best && G.best[hiKey()]) || 0)}</dd><dt>飛ばした脂肪</dt><dd>${G.stats.shots}発</dd><dt>粉砕した障害</dt><dd>${G.stats.crushed}件</dd><dt>食べた物</dt><dd>${G.stats.items}個</dd>`;
       resetShare(); setAdButtons(); ovEnd.hidden = false; againBtn.focus({ preventScroll: true });
       if (!G.daily) Review.maybeAsk('allclear');
     };
@@ -5142,7 +5154,7 @@ function startStage(i, freshAmmo) {
   if (G.bossMode) { G.bossStart = G.play; startBoss(); setBossModeButtons(); return; } // ボスモードは道中なしでいきなりボス戦
   if (i === 0 && !G.ura && !G.daily && !G.endless && !tutDone()) startTut(); // 通常モードの1面で、まだ見ていない人だけ
 }
-function newRun() { G.cont = false; G.easy = false; G.fails = null; G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
+function newRun() { G.cont = false; G.bossRetry = false; G.easy = false; G.fails = null; G.lives = LIVES; G.extended = false; G.bossMode = null; G.rush = null; G.drinkStock = 0; G.drinkHint = false; endDaily(); G.endless = false; G.loop = 0; G.loopDiff = null; G.revived = false; G.graze = 0; G.runId = Date.now(); } // かすりは1回のプレイ全体で数える
 // つづきから：今までに到達した一番先のフロアから。残機は最初と同じ（広告で+1）、脂肪満タン。スコアは記録しない
 function contStage() { return Math.min(STAGES.length - 1, (G.best && G.best.stage) || 0); }
 function startContinue(extraLife) {
@@ -6810,6 +6822,9 @@ $('easyLabel').textContent = EASY.label; $('easyDesc').textContent = EASY.desc;
 $('easyRetryLabel').textContent = `${EASY.label}でこのフロアから`; $('easyRetryDesc').textContent = `${EASY.desc}（残機${EASY.lives}）`;
 $('easyBtn').addEventListener('click', () => { auInit(); startWithStory(true); });
 // 途中からかんたんモードに切り替えたプレイは、最後までかんたんモードとして記録する
+// ボス戦から再挑戦：そのフロアに入ったときの状態で始め、道中を終点まで進めた状態にして次のフレームでボスを出す。
+// 道中を飛ばすぶん、このあとのプレイはつづきからと同じく記録しない（ハイスコア・ランキングの対象外）
+$('bossRetryBtn').addEventListener('click', () => { auInit(); G.cont = G.bossRetry = true; G.score = G.stageScore || 0; startStage(G.stage, true); G.dist = STAGES[G.stage].len; G.banner = null; });
 $('easyRetryBtn').addEventListener('click', () => { auInit(); G.easy = true; setLastMode(); G.fails = null; G.score = G.stageScore || 0; startStage(G.stage, true); });
 $('uraBtn').addEventListener('click', () => { auInit(); if (!modesUnlocked()) return toast(MODE_LOCK_MSG); newGame(true); });
 $('endlessBtn').addEventListener('click', () => { auInit(); if (!modesUnlocked()) return toast(MODE_LOCK_MSG); newGame(false, true); });
@@ -6867,6 +6882,8 @@ const SHARE_URL = PLAY_PUBLIC ? PLAY_URL : 'https://tenmusu10.github.io/metabo-b
 const postUrl = () => 'https://x.com/intent/post?text=' + encodeURIComponent(shareText()) + '&url=' + encodeURIComponent(SHARE_URL);
 for (const id of ['postOver', 'postEnd']) $(id).addEventListener('click', () => { window.open(postUrl(), '_blank', 'noopener'); });
 function resetShare() { for (const [b, o] of [['shareOver', 'shareOverText'], ['shareEnd', 'shareEndText']]) { $(b).textContent = '結果をコピー'; $(o).hidden = true; } }
+// ブラウザ版をスマホで横にしたら「縦にして」の案内を出し、遊んでいる途中なら一時停止（アプリのスマホは縦固定なので出ない）
+try { const land = matchMedia('(orientation: landscape) and (max-height: 500px)'); land.addEventListener('change', e => { if (e.matches && G.mode === 'play') togglePause(); }); } catch (e) {}
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.mode === 'play') togglePause(); });
 
 function boot() {
