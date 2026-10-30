@@ -792,57 +792,78 @@ const DRUMS = {
 };
 const MOOD_TAG = ['', '（不穏）', '（崖っぷち）', '（悲壮）'];
 function moodIndex() { const a = ammo(); return a >= 5 ? 0 : a >= 3 ? 1 : a === 2 ? 2 : 3; }
+// ボスを倒したあともクリア画面まではボスの曲のまま（クリア画面では小さく流す）
 function songKey() { return G.mode === 'title' ? 'title' : G.boss ? 'boss_' + G.boss.kind : STAGES[G.stage].theme; }
 function songLabel() { const k = songKey(); return SONG[k].label + (k === 'title' ? '' : MOOD_TAG[moodIndex()]); }
-// ボス戦の曲ファイル（bgm/ に置いてパスを書く）。null・読めない・file:// で開いたときは合成の曲で鳴らす
+// 曲ファイル（キーは songKey()：道中はステージの theme、ボス戦は boss_ + ボスの kind）。bgm/ に置いて拡張子なしの名前を書く
+// 書いていない・読めない・file:// で開いたときは合成の曲で鳴らす。ogg が鳴らない端末（iPhone の Safari など）は同じ名前の m4a を使う
 // 曲ファイルは audio 要素で鳴らす：音量は「BGMの音量」に合わせ、脂肪が尽きかけたら少し遅くする（合成の曲ほどは崩れない）
-const BGM_FILES = { boss_shacho: null, boss_client: null, boss_senmu: null, boss_yakushiji: null, boss_kyoshacho: null };
+const BGM_FILES = { office: 'bgm/stage1', street: 'bgm/stage2', izakaya: 'bgm/stage3', boss_shacho: 'bgm/boss_shacho', boss_client: 'bgm/boss_client', boss_senmu: 'bgm/boss_senmu', boss_yakushiji: null, boss_kyoshacho: null };
+const BGM_EXT = (() => { try { return new Audio().canPlayType('audio/ogg; codecs="vorbis"') ? '.ogg' : '.m4a'; } catch (e) { return '.m4a'; } })();
 const BGM_EL = {};
 let bgmCur = null;
 function bgmEl(key) {
   const src = BGM_FILES[key]; if (!src || location.protocol === 'file:') return null;
   let el = BGM_EL[key];
   if (!el) {
-    el = BGM_EL[key] = new Audio(src); el.loop = true; el.preload = 'auto';
+    el = BGM_EL[key] = new Audio(src + BGM_EXT); el.loop = true; el.preload = 'auto';
     if ('preservesPitch' in el) el.preservesPitch = false;
     el.addEventListener('error', () => { el.failed = true; });
   }
   return el.failed ? null : el;
 }
-function bgmFileStop(reset) { if (!bgmCur) return; bgmCur.pause(); if (reset) bgmCur = null; }
-// 曲ファイルを鳴らしたら true（合成の曲は止めておく）
-function bgmFileTick(key, mood) {
+// ステージに入ったら道中とボスの曲を先に読み込んでおく（ボスが来たときに読み込み待ちで無音にならないように）
+function bgmPreload(keys) { for (const k of keys) bgmEl(k); }
+const bgmFading = new Set(); // 切り替えで消している途中の曲
+function bgmFileStop(reset) {
+  for (const o of bgmFading) o.pause(); bgmFading.clear();
+  if (!bgmCur) return; bgmCur.pause(); if (reset) bgmCur = null;
+}
+// tips とクリア画面では曲を止めずに小さく流す
+function musicDuck() { return G.mode === 'tip' || G.mode === 'clear' ? 0.45 : 1; }
+// 曲ファイルを鳴らしたら true（合成の曲は止めておく）。切り替えは前の曲を消しながら次の曲を上げる
+function bgmFileTick(key, mood, dt) {
   const el = bgmEl(key);
   if (!el) { bgmFileStop(true); return false; }
-  if (bgmCur !== el) { bgmFileStop(true); bgmCur = el; try { el.currentTime = 0; } catch (e) {} }
-  el.volume = SETTINGS.sound ? clamp(SETTINGS.bgm / 100, 0, 1) * 0.8 : 0;
+  if (bgmCur !== el) { if (bgmCur) bgmFading.add(bgmCur); bgmFading.delete(el); bgmCur = el; el.volume = 0; try { el.currentTime = 0; } catch (e) {} }
+  const vol = SETTINGS.sound ? clamp(SETTINGS.bgm / 100, 0, 1) * 0.4 * musicDuck() : 0;
+  el.volume = clamp(el.volume + (vol - el.volume) * Math.min(1, dt * 5), 0, 1);
   el.playbackRate = mood === 3 ? 0.88 : 1;
+  for (const o of bgmFading) {
+    o.volume = Math.max(0, o.volume - dt * 0.6);
+    if (o.volume <= 0 || document.hidden) { o.pause(); bgmFading.delete(o); }
+  }
   if (document.hidden) el.pause();
   else if (el.paused) el.play().catch(() => { el.failed = true; });
   return true;
 }
-function musicStart() { if (!AU.ctx) return; bgmFileStop(true); AU.playing = true; AU.step = 0; AU.songKey = songKey(); AU.next = AU.ctx.currentTime + 0.08; }
+function musicStart() {
+  if (!AU.ctx) return; bgmFileStop(true); AU.playing = true; AU.step = 0; AU.songKey = songKey(); AU.next = AU.ctx.currentTime + 0.08;
+  if (G.mode === 'play') { const st = STAGES[G.stage]; bgmPreload([st.theme, 'boss_' + st.boss]); }
+}
 function musicStop() {
   AU.playing = false; bgmFileStop(false);
   if (!AU.ctx || !AU.mus) return;
   const old = AU.mus, now = AU.ctx.currentTime;
   old.gain.cancelScheduledValues(now); old.gain.setValueAtTime(old.gain.value, now); old.gain.linearRampToValueAtTime(0, now + 0.03);
   setTimeout(() => { try { old.disconnect(); } catch (e) {} }, 400);
-  AU.mus = AU.ctx.createGain(); AU.mus.gain.value = musVol(); AU.mus.connect(AU.musLP);
+  AU.mus = AU.ctx.createGain(); AU.mus.gain.value = musVol(); AU.mus.connect(AU.musLP); AU.duck = 1;
 }
 function musicResume() { if (!AU.ctx) return; AU.playing = true; AU.next = AU.ctx.currentTime + 0.08; }
 function musicTick() {
   if (!AU.ctx || !AU.playing) return;
   const a = AU.ctx, key = songKey(), S = SONG[key];
+  const dt = Math.min(0.1, a.currentTime - (AU.tickT || a.currentTime)); AU.tickT = a.currentTime;
   if (key !== AU.songKey) { AU.songKey = key; AU.step = 0; }
   const mood = key === 'title' ? 0 : moodIndex();
-  if (bgmFileTick(key, mood)) { AU.next = a.currentTime + 0.05; return; }
+  if (bgmFileTick(key, mood, dt)) { AU.next = a.currentTime + 0.05; return; }
+  const duck = musicDuck();
+  if (AU.duck !== duck) { AU.duck = duck; AU.mus.gain.setTargetAtTime(musVol() * duck, a.currentTime, 0.15); }
   const spb = 60 / (S.tempo * (mood === 3 ? 0.72 : 1)) / 4;
   AU.musLP.frequency.setTargetAtTime([18000, 9000, 2300, 1300][mood], a.currentTime, 0.3);
   if (AU.next < a.currentTime) AU.next = a.currentTime + 0.03;
   while (AU.next < a.currentTime + 0.15) { playStep(S, AU.step, AU.next, spb, mood); AU.next += spb; AU.step++; }
 }
-// 長調の曲を短調に崩す（長3度・長6度・長7度を半音下げる）
 function minorize(n, S, mood) {
   if (!S.major || mood === 0) return n;
   const d = ((n - S.tonic) % 12 + 12) % 12;
@@ -1721,7 +1742,7 @@ Object.assign(EN, {
   '不具合を報告': 'Report a bug',
   '広告のプライバシー設定': 'Ad privacy settings',
   '言語': 'Language',
-  '企画・開発　CYCLE Games<br>絵・音楽・効果音は全てプログラムで作っています': 'Design & development: CYCLE Games<br>All art, music and sound effects are generated by code',
+  '企画・開発　CYCLE Games<br>絵・効果音と一部の音楽はプログラムで作っています<br>一部の曲は Suno（Pro プラン）で作りました': 'Design & development: CYCLE Games<br>All art, sound effects and some music are generated by code<br>Some tracks were made with Suno (Pro plan)',
   'フォント': 'Fonts',
   '上記のフォントは SIL Open Font License 1.1 で提供されています': 'The fonts above are licensed under the SIL Open Font License 1.1',
 
@@ -5088,7 +5109,7 @@ function showOver() {
   retryBtn.focus({ preventScroll: true });
 }
 function stageClear() {
-  G.mode = 'clear'; musicStop(); sfx('clear'); G.flash = 1; G.flashCol = '#fff'; pauseBtn.hidden = true;
+  G.mode = 'clear'; sfx('clear'); G.flash = 1; G.flashCol = '#fff'; pauseBtn.hidden = true;
   const st = STAGES[G.stage], bonus = ammo() * 2000, shown = Math.round(bonus * modeMult());
   addScore(bonus);
   if (!G.bossMode) { // ボスモードは道中がないので、ステージクリアの実績は対象外
@@ -5728,7 +5749,7 @@ function loop(now) {
   requestAnimationFrame(loop);
   if (now - last < MIN_FRAME_MS) return;
   const rdt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
-  if (G.mode === 'paused' || G.mode === 'tip') { render(); return; }
+  if (G.mode === 'paused' || G.mode === 'tip') { render(); musicTick(); return; } // tips 中も曲は小さく流す（一時停止中は止めてある）
   const slowing = P.charging && G.mode === 'play';
   if (slowing) G.slowBudget -= rdt; else G.slowBudget = Math.min(1.6, G.slowBudget + rdt * 0.6);
   const target = slowing && G.slowBudget > 0 ? 0.3 : 1;
@@ -6187,7 +6208,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.`;
 function showCredits() {
   openPanel('クレジット', `
-    <p class="pnote">企画・開発　CYCLE Games<br>絵・音楽・効果音は全てプログラムで作っています</p>
+    <p class="pnote">企画・開発　CYCLE Games<br>絵・効果音と一部の音楽はプログラムで作っています<br>一部の曲は Suno（Pro プラン）で作りました</p>
     <h3>フォント</h3>
     <ul class="credits">${FONT_CREDITS.map(([n, c]) => `<li><b>${esc(n)}</b><br><small>${esc(c)}</small></li>`).join('')}</ul>
     <p class="pnote">上記のフォントは SIL Open Font License 1.1 で提供されています</p>
@@ -6523,7 +6544,6 @@ function tipTick() {
 }
 function showTip(tip) {
   G.mode = 'tip'; P.charging = false; chargeSound(false); ptr = mptr = fptr = null; for (const k in keys) keys[k] = false;
-  musicStop();
   $('tipTitle').textContent = tr(tip.title); $('tipBody').innerHTML = tr(tip.body); drawTipArt($('tipArt'), tip);
   $('ovTip').hidden = false; $('tipOk').focus({ preventScroll: true });
   sfx('pick');
@@ -6531,7 +6551,7 @@ function showTip(tip) {
 function closeTip(never) {
   if (G.mode !== 'tip') return;
   if (never) { SETTINGS.tips = false; saveSettings(); G.tipQ = []; toast('tipsはタイトルの「tips集」でいつでも見られます'); }
-  $('ovTip').hidden = true; G.mode = 'play'; musicResume();
+  $('ovTip').hidden = true; G.mode = 'play';
   tipGrace();
 }
 // ボスの技のtipsは撃つ前に出す（bossAttack）。それ以外で撃ちかけのときに出ても、閉じたあとに新しい弾は来ない（画面の弾はそのまま）
