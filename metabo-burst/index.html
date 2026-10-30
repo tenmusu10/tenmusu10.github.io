@@ -46,7 +46,7 @@ body{
   color:var(--paper);font-family:var(--f-body);overflow:hidden;
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
 }
-#stage{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);display:grid;place-items:center}
+#stage{touch-action:none;position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);bottom:env(safe-area-inset-bottom,0px);display:grid;place-items:center}
 #frame{position:relative;container-type:size;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.06),0 30px 80px rgba(0,0,0,.6);background:#c3cbbd}
 #cv{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 /* 画面全体の色かぶり・周辺の暗さはCSSで重ねる（キャンバスで全面を塗るより軽い）。HUDはその上の別キャンバス */
@@ -220,7 +220,8 @@ body{
 .tcard dl{display:grid;grid-template-columns:auto auto;align-items:baseline;gap:.4cqw 5cqw;margin:0;font-size:3.4cqw}
 .tcard dt{text-align:left;color:#5d6660}.tcard dd{margin:0;text-align:right;font-size:5.6cqw}
 .tcard dd.ok{color:#1f7a43}.tcard dd.late{color:var(--hanko)}
-.pause{position:absolute;right:2.6cqw;bottom:2.4cqw;width:10cqw;height:10cqw;border-radius:50%;border:.4cqw solid rgba(255,255,255,.35);background:rgba(16,20,23,.55);color:var(--paper);font-family:var(--f-pixel);font-size:3.6cqw;cursor:pointer}
+/* 一時停止は上のスコアのすぐ下・左の壁の上。下の「撃つ」から離して、連打で止まらないように */
+.pause{position:absolute;left:1.6cqw;top:16.6cqw;width:11cqw;height:11cqw;border-radius:50%;border:.4cqw solid rgba(255,255,255,.35);background:rgba(16,20,23,.55);color:var(--paper);font-family:var(--f-pixel);font-size:3.6cqw;cursor:pointer}
 @media (prefers-reduced-motion: reduce){.logo .b,.ura,.toast.show,.tut.pop{animation:none}}
 .modes{display:flex;gap:2cqw;justify-content:center;flex-wrap:wrap}
 .ura.locked{color:#8a8f8c;border-color:#4a4f4c;text-shadow:none;animation:none;filter:grayscale(1);opacity:.7}
@@ -456,11 +457,11 @@ body{
         <ol>
           <li><b>スワイプ</b>で<wbr>上下左右に<wbr>移動。<wbr>当たり判定は<wbr><b>お腹</b>で、<wbr>見た目より<wbr>ちょっと<wbr>小さめ。</li>
           <li><b>赤く光る・<wbr>赤い点線</b>は<wbr>障害物。<wbr>当たると<wbr>残業確定。<wbr><b style="color:#146b38">緑に光る＋1</b>は<wbr>食べ物。</li>
-          <li>右下の<wbr><b>「撃つ」</b>で<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>移動中は<wbr>もう1本の<wbr>指で<wbr>タップすると<wbr>発射、<wbr><b>置いたまま<wbr>長押し</b>→<wbr>左右に<wbr>ずらして<wbr>狙って<wbr>離すと<wbr>狙い撃ち<wbr>（下に<wbr>引っ張っても<wbr>よい）。</li>
+          <li><b>「撃つ」</b>ボタンで<wbr>脂肪が飛ぶ。<wbr>押しっぱなしで<wbr>連射。<wbr><b>お腹から<wbr>下に<wbr>引っ張って<wbr>離す</b>と<wbr>狙い撃ち。<wbr>移動中は<wbr>もう1本の<wbr>指で<wbr>タップすると<wbr>発射、<wbr><b>置いたまま<wbr>長押し</b>→<wbr>左右に<wbr>ずらして<wbr>狙って<wbr>離すと<wbr>狙い撃ち<wbr>（下に<wbr>引っ張っても<wbr>よい）。</li>
           <li>当たっても<wbr><b>残機</b>が<wbr>あれば<wbr>その場で<wbr>立て直せる<wbr>（最初は2つ・<wbr>再挑戦では<wbr>そのフロアに<wbr>入ったときの数<wbr>・最低1）。</li>
           <li>撃つほど<wbr>痩せて<wbr>当たり判定が<wbr>小さくなる。<wbr>でも<wbr>脂肪<b>0</b>のまま<wbr>2秒<wbr>たつと<wbr>ガリガリに<wbr>燃え尽きる。<wbr>すぐ<wbr>食べれば<wbr>助かる。</li>
           <li>太っているほど<wbr>スコアが伸びる。<wbr>食べて回復：<wbr>おにぎり／<wbr>からあげは<wbr>貫通弾／<wbr>マシマシラーメンは<wbr>全回復。</li>
-          <li><b>栄養ドリンク</b>は<wbr>1本まで<wbr>持てる。<wbr>右下の<wbr><b>「無敵」</b>で<wbr>好きなときに<wbr>6秒間無敵。<wbr>障害物に<wbr>体当たりで<wbr>粉砕。<wbr>ボスへの<wbr>体当たりは<wbr>1本で2回まで。</li>
+          <li><b>栄養ドリンク</b>は<wbr>1本まで<wbr>持てる。<wbr><b>「無敵」</b>ボタンで<wbr>好きなときに<wbr>6秒間無敵。<wbr>障害物に<wbr>体当たりで<wbr>粉砕。<wbr>ボスへの<wbr>体当たりは<wbr>1本で2回まで。</li>
           <li>壊した物で<wbr>点が違う<wbr>（部長500・<wbr>車400・<wbr>上司200 など）。<wbr>無敵中の<wbr>体当たりは<wbr>2倍で、<wbr>続けて壊すほど<wbr>最大×3。</li>
           <li>ボスは<wbr>体力が減ると<wbr><b>業務命令</b>を<wbr>発令。<wbr>ドリンクを<wbr>使わずに<wbr>顔面に当てて<wbr><b>却下</b>すれば<wbr>却下手当（大量点）。</li>
           <li><b>エンドレス残業</b>は<wbr>5つのフロアを<wbr>ぐるぐる周回。<wbr>周るほど<wbr>敵が増えて、<wbr>点も伸びる。</li>
@@ -1414,6 +1415,7 @@ Object.assign(EN, {
   '画面をスワイプして<b>移動</b>': 'Swipe the screen to <b>move</b>',
   '<b>←→↑↓</b>（ドラッグでも可）で<b>移動</b>': '<b>Arrow keys</b> (or drag) to <b>move</b>',
   '右下の<b>「撃つ」</b>でお腹の<b>脂肪</b>を発射。<br>押しっぱなしで連射': 'Tap <b>FIRE</b> (bottom right) to shoot your belly <b>fat</b>.<br>Hold it for rapid fire',
+  '左下の<b>「撃つ」</b>でお腹の<b>脂肪</b>を発射。<br>押しっぱなしで連射': 'Tap <b>FIRE</b> (bottom left) to shoot your belly <b>fat</b>.<br>Hold it for rapid fire',
   '<b>Space</b>を軽く押して<br>お腹の<b>脂肪</b>を発射': 'Tap <b>Space</b> to<br>shoot your belly <b>fat</b>',
   '<span class="tkey">ここがキモ！</span><br>撃つほど痩せて、<b>赤い点線の当たり判定</b>が<b>小さく</b>なる。<br>細いほど弾をすり抜けやすい': '<span class="tkey">THE KEY IDEA!</span><br>The more you shoot, the thinner you get, and the <b>red dotted hitbox</b> gets <b>smaller</b>.<br>Thin = easier to slip through bullets',
   'ただし下の<b>脂肪の弾</b>が<b>尽きる</b>と<br><b class="tdead">燃え尽きて死亡</b>。<br>右上の<b>スコア倍率</b>も痩せるほど下がる': 'But if your <b>fat ammo</b> (bottom) <b>runs out</b>,<br>you <b class="tdead">burn out and die</b>.<br>Your <b>score multiplier</b> (top right) also drops as you slim down',
@@ -1431,11 +1433,11 @@ Object.assign(EN, {
   '退勤マニュアル': 'Clock-Out Manual',
   '<b>スワイプ</b>で上下左右に移動。当たり判定は<b>お腹</b>で、見た目よりちょっと小さめ。': '<b>Swipe</b> to move. Your hitbox is your <b>belly</b>, a bit smaller than it looks.',
   '<b>赤く光る・赤い点線</b>は障害物。当たると残業確定。<b style="color:#146b38">緑に光る＋1</b>は食べ物。': '<b>Red glow or red dotted lines</b> = obstacles. Touch one and it\'s overtime for you. <b style="color:#146b38">Green glow +1</b> = food.',
-  '右下の<b>「撃つ」</b>で脂肪が飛ぶ。押しっぱなしで連射。<b>お腹から下に引っ張って離す</b>と狙い撃ち。移動中はもう1本の指でタップすると発射、<b>置いたまま長押し</b>→左右にずらして狙って離すと狙い撃ち（下に引っ張ってもよい）。': '<b>FIRE</b> (bottom right) launches fat. Hold for rapid fire. <b>Pull down from your belly and release</b> for an aimed shot. While moving, tap with a second finger to fire, or <b>hold it still</b>, slide left/right to aim and release (pulling down works too).',
+  '<b>「撃つ」</b>ボタンで脂肪が飛ぶ。押しっぱなしで連射。<b>お腹から下に引っ張って離す</b>と狙い撃ち。移動中はもう1本の指でタップすると発射、<b>置いたまま長押し</b>→左右にずらして狙って離すと狙い撃ち（下に引っ張ってもよい）。': 'The <b>FIRE</b> button launches fat. Hold for rapid fire. <b>Pull down from your belly and release</b> for an aimed shot. While moving, tap with a second finger to fire, or <b>hold it still</b>, slide left/right to aim and release (pulling down works too).',
   '当たっても<b>残機</b>があればその場で立て直せる（最初は2つ・再挑戦ではそのフロアに入ったときの数・最低1）。': 'Got hit? With <b>lives</b> left you recover on the spot (2 at the start; on retry, what you had entering the floor, at least 1).',
   '撃つほど痩せて当たり判定が小さくなる。でも脂肪<b>0</b>のまま2秒たつとガリガリに燃え尽きる。すぐ食べれば助かる。': 'Shooting slims you down and shrinks your hitbox. But stay at <b>0</b> fat for 2 seconds and you burn out. Eat something fast to survive.',
   '太っているほどスコアが伸びる。食べて回復：おにぎり／からあげは貫通弾／マシマシラーメンは全回復。': 'The fatter you are, the more you score. Eat to refill: rice ball / fried chicken = piercing shot / mega ramen = full refill.',
-  '<b>栄養ドリンク</b>は1本まで持てる。右下の<b>「無敵」</b>で好きなときに6秒間無敵。障害物に体当たりで粉砕。ボスへの体当たりは1本で2回まで。': 'You can carry one <b>energy drink</b>. Hit <b>INVINCIBLE</b> (bottom right) any time for 6 seconds of invincibility. Body-slam obstacles to smash them. Up to 2 boss slams per drink.',
+  '<b>栄養ドリンク</b>は1本まで持てる。<b>「無敵」</b>ボタンで好きなときに6秒間無敵。障害物に体当たりで粉砕。ボスへの体当たりは1本で2回まで。': 'You can carry one <b>energy drink</b>. Hit the <b>INVINCIBLE</b> button any time for 6 seconds of invincibility. Body-slam obstacles to smash them. Up to 2 boss slams per drink.',
   '壊した物で点が違う（部長500・車400・上司200 など）。無敵中の体当たりは2倍で、続けて壊すほど最大×3。': 'Points depend on what you smash (manager 500, car 400, supervisor 200, etc.). Invincible slams score double, up to x3 for chains.',
   'ボスは体力が減ると<b>業務命令</b>を発令。ドリンクを使わずに顔面に当てて<b>却下</b>すれば却下手当（大量点）。': 'Hurt bosses issue a <b>Direct Order</b>. Hit their face without using a drink to <b>REJECT</b> it and earn a Rejection Bonus (big points).',
   '<b>エンドレス残業</b>は5つのフロアをぐるぐる周回。周るほど敵が増えて、点も伸びる。': '<b>Endless Overtime</b> loops all 5 floors. Each lap adds enemies, and points.',
@@ -1502,6 +1504,7 @@ Object.assign(EN, {
   '撃ったらすぐ食べないと燃え尽きる': 'Shoot it and eat fast, or you burn out',
   'ドリンク確保': 'DRINK GET',
   '右下の「無敵」で好きなときに使える': 'Use it any time with INVINCIBLE (bottom right)',
+  '左下の「無敵」で好きなときに使える': 'Use it any time with INVINCIBLE (bottom left)',
   'Xキーで好きなときに使える': 'Press X to use it any time',
   '残機 －1': 'LIFE -1',
   'のこり {#}': '{#} left',
@@ -1699,6 +1702,9 @@ Object.assign(EN, {
   '振動': 'Vibration',
   '揺れ・フラッシュ': 'Shake & flashes',
   '弱め': 'Reduced',
+  '撃つボタンの位置': 'Fire button side',
+  '右下': 'Right',
+  '左下': 'Left',
   '標準': 'Normal',
   'tips（初めて見る物の説明）': 'Tips (explain new things)',
   'プライバシーポリシー': 'Privacy policy',
@@ -4469,8 +4475,13 @@ function drawBullets(c) {
 /* ================= 入力 ================= */
 let ptr = null, mptr = null; // ptr：お腹を触っている指（射撃）、mptr：移動用の指
 const keys = {};
+// 発射とドリンクのボタン。設定の「ボタンの位置」で左下に移せる（左手で持つ人向け）。
+// ドリンクは押せる範囲が発射と重ならない高さ・大きさにする（小さい画面でも直径48px前後）
 const FIRE_BTN = { x: 314, y: H - 33, r: 27 };
-const DRINK_BTN = { x: 314, y: H - 96, r: 22 };
+const DRINK_BTN = { x: 314, y: H - 104, r: 24 };
+function layoutButtons() { FIRE_BTN.x = DRINK_BTN.x = SETTINGS.lefty ? W - 314 : 314; }
+layoutButtons();
+const BELLY_R = 56; // お腹から狙い撃ちを始められる範囲（これより外や、真下以外へ動かしたら移動）
 let fptr = null; // 発射ボタンを押している指
 function toLocal(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H }; }
 function canAct() { return G.mode === 'play' && !G.exiting; } // 弾切れの猶予中も動ける（撃つのは脂肪0なので不可）
@@ -4479,28 +4490,34 @@ function quickFire() {
   fire({ x: clamp(P.vx / 1600, -0.25, 0.25), y: -1 }, 0.85, true); G.fireCD = 0.12;
 }
 function startCharge(kb, hold) { P.charging = true; P.kb = kb; P.hold = !!hold; P.pullAmt = 0; G.kbAim = 0; chargeSound(true); }
-cv.addEventListener('pointerdown', e => {
-  if (!canAct()) return;
+// タッチは画面全体（#stage）で受ける。縦横比を合わせるための上下の帯から動かし始めても移動できるように
+// （座標はキャンバスの外にはみ出してもよい。移動は動いた分だけ使う）。ボタンや画面の上の札は除く
+const onField = e => e.target === cv || e.target === stageEl || e.target === frame;
+stageEl.addEventListener('pointerdown', e => {
+  if (!canAct() || !onField(e)) return;
   e.preventDefault();
-  const p = toLocal(e); try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  const p = toLocal(e); try { stageEl.setPointerCapture(e.pointerId); } catch (_) {}
   const hb = hitbox();
-  if (G.drinkStock && Math.hypot(p.x - DRINK_BTN.x, p.y - DRINK_BTN.y) < DRINK_BTN.r + 8) useDrink();
-  else if (Math.hypot(p.x - FIRE_BTN.x, p.y - FIRE_BTN.y) < FIRE_BTN.r + 10) { fptr = { id: e.pointerId }; quickFire(); }
-  // お腹の近くに触れた指は、最初に動いた向きで決める（下へ引いたら狙い撃ち、それ以外は移動）
-  else if (!ptr && !mptr && Math.hypot(p.x - hb.x, p.y - hb.y) < 86 && ammo() > 0) ptr = { id: e.pointerId, sx: p.x, sy: p.y, x: p.x, y: p.y, t0: performance.now() };
+  // 発射とドリンクは近いほうを押したことにする（重なりかけた縁で、大事なドリンクを使ってしまわないように）
+  const dF = Math.hypot(p.x - FIRE_BTN.x, p.y - FIRE_BTN.y), dD = Math.hypot(p.x - DRINK_BTN.x, p.y - DRINK_BTN.y);
+  if (G.drinkStock && dD < DRINK_BTN.r + 8 && dD < dF) useDrink();
+  else if (dF < FIRE_BTN.r + 10) { fptr = { id: e.pointerId }; quickFire(); }
+  // お腹に触れた指は、最初に動いた向きで決める（ほぼ真下へ引いたら狙い撃ち、それ以外は移動）
+  else if (!ptr && !mptr && Math.hypot(p.x - hb.x, p.y - hb.y) < BELLY_R && ammo() > 0) ptr = { id: e.pointerId, sx: p.x, sy: p.y, x: p.x, y: p.y, t0: performance.now() };
   else if (!mptr) mptr = { id: e.pointerId, lx: p.x, ly: p.y };
   // 移動中のもう1本の指：下へ引いたら狙い撃ち、そのまま離したら発射（どこを触ってもよい）
   else if (!ptr && ammo() > 0) ptr = { id: e.pointerId, sx: p.x, sy: p.y, x: p.x, y: p.y, t0: performance.now(), second: true };
   else quickFire();
 });
-cv.addEventListener('pointermove', e => {
+stageEl.addEventListener('pointermove', e => {
   const p = toLocal(e);
   if (mptr && mptr.id === e.pointerId) { P.tx = clamp(P.tx + (p.x - mptr.lx), WL + 52, WR - 52); P.ty = clamp(P.ty + (p.y - mptr.ly), YMIN, YMAX); mptr.lx = p.x; mptr.ly = p.y; }
   else if (ptr && ptr.id === e.pointerId) {
     ptr.x = p.x; ptr.y = p.y;
     if (!P.charging && Math.hypot(p.x - ptr.sx, p.y - ptr.sy) > 12 && canAct()) {
       const dx = p.x - ptr.sx, dy = p.y - ptr.sy;
-      if (dy > 0 && dy > Math.abs(dx) * 0.8) startCharge(false);
+      // お腹の指は真下寄り（横の1.5倍以上下）だけ。斜め下へ逃げる動きを狙い撃ちと取り違えない。2本目の指は今までどおり
+      if (dy > 0 && dy > Math.abs(dx) * (ptr.second ? 0.8 : 1.5)) startCharge(false);
       else if (ptr.second) ptr = null; // 2本目の指を横や上に動かしたときは何もしない
       else { // 移動の指に切り替え、ここまでの動きも反映
         P.tx = clamp(P.tx + dx, WL + 52, WR - 52); P.ty = clamp(P.ty + dy, YMIN, YMAX);
@@ -4525,8 +4542,8 @@ function endPtr(e, cancel) {
   } else if (ptr.second && !cancel) quickFire();
   ptr = null;
 }
-cv.addEventListener('pointerup', e => endPtr(e, false));
-cv.addEventListener('pointercancel', e => endPtr(e, true));
+stageEl.addEventListener('pointerup', e => endPtr(e, false));
+stageEl.addEventListener('pointercancel', e => endPtr(e, true));
 // 押した状態は小文字で持つ（Shiftを押しながらだと e.key が大文字になり、押したときと離したときで別のキー扱いになるため）
 const keyName = e => e.key.length === 1 ? e.key.toLowerCase() : e.key;
 addEventListener('keydown', e => {
@@ -4713,7 +4730,7 @@ function pickup(e) {
   if (e.kind === 'drink') { // 持てるのは1本まで。好きなときに使う
     if (G.drinkStock) { addScore(300); text('満杯 +300', P.x, P.y - 122, 14, '#ffe27a'); sfx('pick'); return; }
     G.drinkStock = 1; text('ドリンク確保！', P.x, P.y - 122, 18, '#ffe27a'); sfx('kit');
-    if (!G.drinkHint) { G.drinkHint = true; banner('ドリンク確保', TOUCH ? '右下の「無敵」で好きなときに使える' : 'Xキーで好きなときに使える', '#ffe27a'); }
+    if (!G.drinkHint) { G.drinkHint = true; banner('ドリンク確保', TOUCH ? (SETTINGS.lefty ? '左下の「無敵」で好きなときに使える' : '右下の「無敵」で好きなときに使える') : 'Xキーで好きなときに使える', '#ffe27a'); }
     return;
   }
   if (e.kind === 'ramen') {
@@ -4802,7 +4819,7 @@ const TOUCH = matchMedia('(pointer: coarse)').matches;
 // info：操作なしで読むだけの項目。hl：枠で示す場所
 const TUT = [
   { text: () => TOUCH ? '画面をスワイプして<b>移動</b>' : '<b>←→↑↓</b>（ドラッグでも可）で<b>移動</b>', done: T => Math.hypot(P.x - T.x0, P.y - T.y0) > 70, limit: 10 },
-  { text: () => TOUCH ? '右下の<b>「撃つ」</b>でお腹の<b>脂肪</b>を発射。<br>押しっぱなしで連射' : '<b>Space</b>を軽く押して<br>お腹の<b>脂肪</b>を発射', hl: 'fire', done: T => G.stats.shots > T.shots0, limit: 12 },
+  { text: () => TOUCH ? (SETTINGS.lefty ? '左下の<b>「撃つ」</b>でお腹の<b>脂肪</b>を発射。<br>押しっぱなしで連射' : '右下の<b>「撃つ」</b>でお腹の<b>脂肪</b>を発射。<br>押しっぱなしで連射') : '<b>Space</b>を軽く押して<br>お腹の<b>脂肪</b>を発射', hl: 'fire', done: T => G.stats.shots > T.shots0, limit: 12 },
   { text: () => '<span class="tkey">ここがキモ！</span><br>撃つほど痩せて、<b>赤い点線の当たり判定</b>が<b>小さく</b>なる。<br>細いほど弾をすり抜けやすい', hl: 'hitbox', info: true },
   { text: () => 'ただし下の<b>脂肪の弾</b>が<b>尽きる</b>と<br><b class="tdead">燃え尽きて死亡</b>。<br>右上の<b>スコア倍率</b>も痩せるほど下がる', hl: 'fat', info: true },
   { text: () => '尽きても<b>2秒だけ猶予</b>がある。<br>そのあいだに<b>食べ物</b>を取れば<b>復活</b>！<br>おにぎりを取って脂肪を戻そう', setup: () => addEnt({ type: 'item', kind: 'onigiri', x: clamp(P.x + 60, WL + 60, WR - 60), y: 120, r: 13 }), done: T => G.stats.items > T.items0, limit: 12 },
@@ -5424,6 +5441,7 @@ function drawHUD(c) {
   // 下のパネルの上：残機（「残機」の札と顔のアイコン。0のときは赤い札だけ）
   {
     const n = G.lives || 0, ly = H - 76, lw = 44 + Math.max(1, n) * 26;
+    c.save(); if (SETTINGS.lefty) c.translate(W - 16 - lw, 0); // ボタンを左下にしたときは、残機と脂肪の札を右へ
     c.fillStyle = 'rgba(16,20,23,.78)'; rr(c, 8, ly - 15, lw, 30, 15); c.fill();
     txt(c, '残機', 16, ly + 1, F.zk(13, 900), n ? '#fff' : '#ff8d84', 'left');
     if (!n) txt(c, '0', 64, ly + 1, F.dg(16), '#ff8d84');
@@ -5432,6 +5450,7 @@ function drawHUD(c) {
       c.fillStyle = COL.ink; circ(c, x, ly, 12); c.fill(); c.fillStyle = COL.skin; circ(c, x, ly, 10.5); c.fill();
       c.strokeStyle = '#26292d'; c.lineWidth = 1.2; rr(c, x - 7, ly - 3.5, 6, 4, 1.5); c.stroke(); rr(c, x + 1, ly - 3.5, 6, 4, 1.5); c.stroke();
     }
+    c.restore();
   }
   // 下：自分の体脂肪（ボスの表示と分けるため別パネル・別配色）
   const a = ammo(), low = a <= 1, blink = low && Math.floor(G.t * 6) % 2 === 0;
@@ -5462,7 +5481,7 @@ function drawHUD(c) {
     txt(c, kg + 'kg', pw - 2, py + 40, F.px(8), '#9aa5a0', 'right');
     c = c0;
   }
-  c.drawImage(hudB.cv, 0, py - 4, W, 64);
+  c.drawImage(hudB.cv, SETTINGS.lefty ? W - 16 - pw : 0, py - 4, W, 64);
   // 発射ボタン（押しっぱなしで連射）
   const fb = FIRE_BTN, pressed = !!fptr;
   c.fillStyle = pressed ? 'rgba(244,214,78,.95)' : 'rgba(16,20,23,.86)'; circ(c, fb.x, fb.y, fb.r); c.fill();
@@ -6020,6 +6039,7 @@ function showSettings() {
     <label class="set" for="setSe"><span>効果音の音量</span><input id="setSe" type="range" min="0" max="100" value="${SETTINGS.se}"></label>
     <label class="set"><span>振動</span><button id="setVib" class="tbtn" type="button" aria-pressed="${SETTINGS.vib}">${SETTINGS.vib ? 'ON' : 'OFF'}</button></label>
     <label class="set"><span>揺れ・フラッシュ</span><button id="setCalm" class="tbtn" type="button" aria-pressed="${SETTINGS.calm}">${SETTINGS.calm ? '弱め' : '標準'}</button></label>
+    <label class="set"><span>撃つボタンの位置</span><button id="setLefty" class="tbtn" type="button" aria-pressed="${!!SETTINGS.lefty}">${SETTINGS.lefty ? '左下' : '右下'}</button></label>
     <label class="set"><span>tips（初めて見る物の説明）</span><button id="setTips" class="tbtn" type="button" aria-pressed="${SETTINGS.tips}">${SETTINGS.tips ? 'ON' : 'OFF'}</button></label>
     ${Notify.available() ? `<label class="set"><span>毎日のお知らせ</span><button id="setNotif" class="tbtn" type="button" aria-pressed="${SETTINGS.notif === true}">${SETTINGS.notif === true ? 'ON' : 'OFF'}</button></label>
     <label class="set" for="setNotifHour"><span>お知らせの時刻</span><select id="setNotifHour">${NOTIFY_HOURS.map(h => `<option value="${h}"${h === Notify.hour() ? ' selected' : ''}>${h}:00</option>`).join('')}</select></label>` : ''}
@@ -6037,6 +6057,7 @@ function showSettings() {
   // 言語は読み込み直して切り替える（画面を全部作り直すより確実）。?lang= が付いていたら外す
   $('setLang')?.addEventListener('click', () => { SETTINGS.lang = LANG === 'en' ? 'ja' : 'en'; saveSettings(); location.href = location.href.split('?')[0]; });
   $('setCalm').addEventListener('click', () => { SETTINGS.calm = !SETTINGS.calm; saveSettings(); $('setCalm').setAttribute('aria-pressed', SETTINGS.calm); $('setCalm').textContent = SETTINGS.calm ? '弱め' : '標準'; });
+  $('setLefty').addEventListener('click', () => { SETTINGS.lefty = !SETTINGS.lefty; saveSettings(); layoutButtons(); $('setLefty').setAttribute('aria-pressed', SETTINGS.lefty); $('setLefty').textContent = SETTINGS.lefty ? '左下' : '右下'; });
   $('setAdPrivacy')?.addEventListener('click', () => Ads.showPrivacy());
   $('setNotif')?.addEventListener('click', async e => {
     const b = e.currentTarget; b.disabled = true;
