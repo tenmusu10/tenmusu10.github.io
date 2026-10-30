@@ -4601,9 +4601,12 @@ function updatePlayer(dt, rdt) {
     const kdy = (keys.ArrowDown || keys.s || keys.S ? 1 : 0) - (keys.ArrowUp || keys.w || keys.W ? 1 : 0);
     if (kdy) P.ty = clamp(P.y + kdy * 34, YMIN, YMAX);
   }
-  const desired = clamp((P.tx - P.x) * 14, -520, 520);
+  // 指の位置へ追いつく速さの上限。大きく動かしたときに指に置いていかれないよう上げ、脂肪が減るほど身軽にする（満タン820→空1100、前は520）。
+  // 小さな動きの追いつき方（14・20）は変えない：上げると自動プレイの避けが目に見えて下手になった（2026年10月の試し）
+  const vmax = lerp(1100, 820, ammo() / 6);
+  const desired = clamp((P.tx - P.x) * 14, -vmax, vmax);
   P.vx += (desired - P.vx) * Math.min(1, dt * 20);
-  const desiredY = clamp((P.ty - P.y) * 12, -380, 380);
+  const desiredY = clamp((P.ty - P.y) * 12, -vmax * 0.75, vmax * 0.75);
   P.vy += (desiredY - P.vy) * Math.min(1, dt * 18);
   P.x = clamp(P.x + P.vx * dt, WL + 52, WR - 52);
   P.y = clamp(P.y + P.vy * dt, Math.min(YMIN, P.ty), Math.max(YMAX, P.ty));
