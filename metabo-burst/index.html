@@ -556,6 +556,15 @@ const BOSSES = {
   kyoshacho: { name: '代表取締役社長（Z50本）', who: '鬼瓦 権蔵', read: 'おにがわら ごんぞう', epi: '定時を 許さぬ 最後の壁', hp: 19, faceR: 34, faceY: -76, body: [160, 170], scale: 1.5, ty: 250, attacks: ['stamp3', 'zrain', 'fixed', 'chug', 'stomp', 'summon', 'ring', 'zrain', 'dash', 'chug', 'stomp', 'fixed'] }, // chug：Zの一気飲み（専務の一気飲みと同じ仕組み）
   client: { name: '超大口クライアント', who: '無理田 言造', read: 'むりた いうぞう', epi: '納期前日に 仕様を変える者', hp: 12, faceR: 23, faceY: -60, attacks: ['spec', 'fixed', 'phone', 'dash', 'rain', 'fixed', 'dash', 'phone'] },
 };
+// 2面のクライアント（通常・かんたん）を人の手で戦いやすくする。跳ね返し撃ちは構えている間その場から動けないので、
+// 「避ける時間」と「狙う時間」を分ける。裏は変えない（Botは動きながら一瞬で撃てるので、Botのクリア率では測れない。tools/humanrun.js で測る）
+const CLIENT_EASE = {
+  pad: 10,        // 跳ね返った脂肪弾が顔に当たる判定を広げる（px）。狙い線の「当たる！」も同じ広さで判定する
+  openDelay: 1.0, // 書類の扇（fixed）と降ってくる書類（rain）は、弾が足元を抜けるころに顔を開ける（秒、遅らせる分）
+  phones: 2, phoneHome: 1.0, // 追ってくる硬い電話：3本→2本、追う時間 1.5→1.0秒
+  callHold: 1.4, callSpd: 105, callGap: 4, // 着信地獄：鳴っている時間 1.1→1.4秒、飛ぶ速さ 120→105、抜け道 3→4か所。顔が閉じた瞬間に1回だけ並べる（3.2秒ごと→5秒ごと）
+};
+const clientEase = b => b && b.kind === 'client' && !G.ura;
 // ボスの業務命令：体力が一定まで減ると宣言する特別な攻撃（at＝体力の割合）。tag は件名の【】に入る分類
 const ORDERS = {
   shacho: [
@@ -4062,7 +4071,7 @@ function bossAttack(b) {
     open(1.8);
   } else if (name === 'rain') {
     for (let i = 0; i < Math.round((10 + s2 * 3) * D().rain); i++) later(0.2 + i * 0.13, () => shoot('sheet', rnd(WL + 18, WR - 18), 72, Math.PI / 2 + rnd(-0.15, 0.15), rnd(190, 260)));
-    open(2.1);
+    open(2.1 + (clientEase(b) ? CLIENT_EASE.openDelay : 0));
   } else if (name === 'summon') {
     later(0.3, () => addEnt({ type: 'joushi', x: WL + 40, y: -40, ty: 250, r: 19, hp: 1, solid: true, harm: true, state: 'enter' }), true);
     later(0.8, () => addEnt({ type: 'joushi', x: WR - 40, y: -40, ty: 250, r: 19, hp: 1, solid: true, harm: true, state: 'enter' }), true);
@@ -4083,12 +4092,13 @@ function bossAttack(b) {
   } else if (name === 'fixed') { // 真下へ扇状に広がる固定弾（隙間を交互にずらす）
     const kind2 = b.kind === 'client' ? 'sheet' : 'stamp', ex2 = b.kind === 'client' ? null : sk;
     for (let v = 0; v < 4; v++) later(0.3 + v * 0.4, () => { const n = 7 + (G.ura ? 2 : 0); for (let i = 0; i < n; i++) shoot(kind2, faceX(), faceY(), Math.PI / 2 + (i - (n - 1) / 2) * 0.26 + (v % 2 ? 0.13 : 0), 200, !(v % 2) && i === (n - 1) / 2 ? Object.assign({ hard: true }, ex2) : ex2); sfx('shred'); }); // 真下の1発は硬い弾：顔の真下で撃ち続けるだけでは勝てない
-    open(1.9);
+    open(1.9 + (clientEase(b) ? CLIENT_EASE.openDelay : 0));
   } else if (name === 'bounce') { // 跳ね王冠の扇：左右の壁で跳ね返って交差する
     for (let v = 0; v < (G.ura ? 3 : 2); v++) later(0.3 + v * 0.7, () => { const n = G.ura ? 6 : 4; for (let i = 0; i < n; i++) { const s = i % 2 ? 1 : -1, a = Math.PI / 2 + s * (0.55 + Math.floor(i / 2) * 0.22 + (v % 2 ? 0.1 : 0)); shoot('stamp', faceX(), faceY(), a, G.ura ? 190 : 160, { skin: 'refl', refl: 1, r: 12 }); } sfx('shred'); });
     open(2.2);
   } else if (name === 'phone') {
-    for (let i = 0; i < 2 + s2; i++) later(0.3 + i * 0.45, () => shoot('phone', faceX(), faceY(), Math.atan2(P.y - faceY(), P.x - faceX()) + rnd(-0.5, 0.5), 170, { hard: true, home: 1.5 })); // 追ってくる電話は硬い弾（消せない分、数と追う時間を減らす）
+    const ez = clientEase(b), np = ez ? CLIENT_EASE.phones : 2 + s2, home = ez ? CLIENT_EASE.phoneHome : 1.5;
+    for (let i = 0; i < np; i++) later(0.3 + i * 0.45, () => shoot('phone', faceX(), faceY(), Math.atan2(P.y - faceY(), P.x - faceX()) + rnd(-0.5, 0.5), 170, { hard: true, home })); // 追ってくる電話は硬い弾（消せない分、数と追う時間を減らす）
     open(2.2);
   } else if (name === 'gulp') { // 専務だけ：一気飲み。持ち上げたジョッキを撃てばむせて大きなスキ、間に合わなければ体力回復
     b.gulp = { t: 0, dur: G.ura ? 2.2 : 2.8 }; b.cast = 0;
@@ -4148,6 +4158,7 @@ function bossUpdate(dt) {
     } else if (b.order) orderUpdate(b, dt);
     else if (b.gulp) gulpUpdate(b, dt);
     else if (b.lesson) b.x += (W / 2 - b.x) * Math.min(1, dt * 3); // 練習中は真ん中で止まる
+    else if (clientEase(b) && b.openT > 0) {} // 顔が開いている間は止まる：構えている間に的が逃げない
     else {
       const sp = b.kind === 'client' ? 1.05 : 0.75;
       b.x += ((W / 2 + Math.sin(b.t * sp) * 95) - b.x) * Math.min(1, dt * 3);
@@ -4241,7 +4252,7 @@ function orderUpdate(b, dt) {
       sfx('shred'); later(1.25, () => { if (G.boss === b && b.order === s) text('唱和!!', fx, fy - 70, 18, '#fff'); }, true);
     });
   } else if (s.id === 'turn') { // 下へ流れる書類が、途中で一斉に向きを変える
-    b.x += (W / 2 + Math.sin(s.t * 0.9) * 80 - b.x) * Math.min(1, dt * 2);
+    if (!(clientEase(b) && b.openT > 0)) b.x += (W / 2 + Math.sin(s.t * 0.9) * 80 - b.x) * Math.min(1, dt * 2);
     every(ura ? 0.7 : 0.95, () => {
       const n = ura ? 8 : 6, dir = s.v % 2 ? 1 : -1;
       for (let i = 0; i < n; i++) shoot('sheet', fx, fy, Math.PI / 2 + (i - (n - 1) / 2) * 0.24, ura ? 165 : 140, { turn: { t: 1.0, a: dir * 1.05 } });
@@ -4249,15 +4260,17 @@ function orderUpdate(b, dt) {
     });
   } else if (s.id === 'call') { // 自分を囲むように電話が並び、鳴ったあと一斉に飛んでくる（1か所だけ抜け道）
     b.x += (W / 2 - b.x) * Math.min(1, dt * 2);
-    every(ura ? 3.4 : 3.2, () => {
-      const n = ura ? 10 : 9, gap = Math.floor(rnd(0, n)), hb = hitbox(), cx = hb.x, cy = hb.y, R = 175;
+    const ez = clientEase(b), ring = () => {
+      const n = ura ? 10 : 9, gap = Math.floor(rnd(0, n)), ng = ez ? CLIENT_EASE.callGap : 3, hb = hitbox(), cx = hb.x, cy = hb.y, R = 175;
       for (let i = 0; i < n; i++) {
-        if (i === gap || i === (gap + 1) % n || i === (gap + 2) % n) continue; // 抜け道
+        if ((i - gap + n) % n < ng) continue; // 抜け道
         const a = i / n * TAU, x = clamp(cx + Math.cos(a) * R, WL + 14, WR - 14), y = clamp(cy + Math.sin(a) * R, 70, H - 24); // 画面の端では壁ぎわに並ぶ
-        shoot('phone', x, y, 0, 0, { home: 0, hold: { t: 1.1, tx: cx, ty: cy, spd: ura ? 132 : 120 } });
+        shoot('phone', x, y, 0, 0, { home: 0, hold: { t: ez ? CLIENT_EASE.callHold : 1.1, tx: cx, ty: cy, spd: ura ? 132 : ez ? CLIENT_EASE.callSpd : 120 } });
       }
       sfx('warn');
-    });
+    };
+    if (!ez) every(ura ? 3.4 : 3.2, ring);
+    else if (Math.floor(s.t / 5) !== s.ring) { s.ring = Math.floor(s.t / 5); s.v++; ring(); } // 顔が閉じた瞬間（5秒周期の頭）に並べる：避け終わってから顔が開いている残りで狙える
   } else if (s.id === 'corridor') { // ジョッキの壁が降ってくる。うねる通り道だけが安全
     const gx = W / 2 + Math.sin(s.t * 0.75) * 95 + Math.sin(s.t * 1.7) * 22;
     b.x += (gx - b.x) * Math.min(1, dt * 2.5);
@@ -4925,7 +4938,7 @@ function collisions() {
     if (bo && bo.gulp && !b.dead && !b.hit.has('mug')) { const m = gulpMug(bo); if (Math.hypot(b.x - m.x, b.y - m.y) < m.r + b.r) { b.hit.add('mug'); b.vy = Math.abs(b.vy) * 0.5; gulpChoke(bo); continue; } }
     if (bo && bo.state === 'fight' && !b.dead && !b.hit.has('boss')) {
       const fx = bo.x, fy = bo.y + bo.def.faceY;
-      if (Math.hypot(b.x - fx, b.y - fy) < bo.def.faceR + b.r + (bo.guard > 0.5 ? 14 : 0)) {
+      if (Math.hypot(b.x - fx, b.y - fy) < bo.def.faceR + b.r + (bo.guard > 0.5 ? 14 : 0) + (clientEase(bo) && bo.guard <= 0.5 && b.bounces > 0 ? CLIENT_EASE.pad : 0)) {
         b.hit.add('boss');
         if (bo.guard <= 0.5 && bo.kind === 'client' && b.bounces === 0) {
           b.vy = Math.abs(b.vy) * 0.75; b.vx += rnd(-120, 120);
@@ -5357,7 +5370,7 @@ function drawAimGuide(c) {
     x += vx * 6; y += vy * 6;
     if (x < WL + 14) { x = WL + 14; vx = Math.abs(vx); bounced = true; } if (x > WR - 14) { x = WR - 14; vx = -Math.abs(vx); bounced = true; }
     if (d < len) pts.push(x, y);
-    if (cl && bounced && Math.hypot(x - fx, y - fy) < bo.def.faceR + 14) { hit = true; break; }
+    if (cl && bounced && Math.hypot(x - fx, y - fy) < bo.def.faceR + 14 + (clientEase(bo) ? CLIENT_EASE.pad : 0)) { hit = true; break; }
   }
   c.fillStyle = hit ? COL.memo : '#fff';
   for (let i = 0, k = 0; i < pts.length; i += 2, k++) {
